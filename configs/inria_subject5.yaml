@@ -1,0 +1,42 @@
+train_image_path : "/datasets/open_dataset/inria/AerialImageDataset/train_images.txt"
+train_mask_path : "/datasets/open_dataset/inria/AerialImageDataset/train_labels.txt"
+valid_image_path : "/datasets/open_dataset/inria/AerialImageDataset/val_images.txt"
+valid_mask_path : "/datasets/open_dataset/inria/AerialImageDataset/val_labels.txt"
+image_size : [256, 256]
+batch_size : 120
+dataset_name : "inria"
+model_name : "hrnet"
+
+wce_weight : 0.5
+lr : 0.001
+
+gpu_indices : [0, 1]
+
+num_classes : 2
+class_weight : [0.5, 2.0]
+class_color_map : [0, 255]
+
+# 0 : train from 0, 1 : train continue, 2 : test
+mode : 0
+present_epoch : 0
+epoch : 200
+saving_interval : 300
+save_best : True
+
+save_path : "/dy/weights/inria_hrnet"
+serving_save_path : "/dy/serving_weights/inria_hrnet"
+logger_file : "/dy/logs/inria_hrnet.csv"
+
+
+model :
+    c : 16
+    k : 11
+    v : 2
+    beta : 0.2
+
+test :
+    best : True
+    best_file_name : "best.h5"
+    eval : False
+    output_folder : "/dy/outputs/inria_hrnet"
+

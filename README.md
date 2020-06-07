@@ -1,2 +1,2 @@
-# segmentations_tf2
-Segmentation pipeline with several models. implemented in tensorflow 2.1
+# Tensorflow 2.1 Segmentation pipeline implementation from scratch
+

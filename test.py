@@ -11,6 +11,7 @@ from tensorflow import keras as tk
 
 from models.hrnet import HRNet
 from models.vggunet import Vggunet
+from models.subject4 import Subject4
 
 from dataparser.inria import Inria, Inria_v
 
@@ -51,14 +52,14 @@ if __name__ == "__main__":
         quit()
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-        try:
+    if gpus :
+        try :
             for i in range(len(config["gpu_indices"])) :
                 tf.config.experimental.set_memory_growth(gpus[i], True)
-        except RuntimeError as e:
+        except RuntimeError as e :
             print(e)
 
-    
+
     if config["dataset_name"] == "inria" :
         data_parserv = Inria_v(config)
 
@@ -67,22 +68,16 @@ if __name__ == "__main__":
         data_parserv.generator,
         (tf.float32, tf.float32),
         (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 1]))
-    ).batch(config["batch_size"], drop_remainder=True)
+    ).batch(config["batch_size"], drop_remainder=False)
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
-    with mirrored_strategy.scope():
+    with mirrored_strategy.scope() :
         if config["model_name"] == "hrnet" : 
             the_model = HRNet(configs=config)
         elif config["model_name"] == "vggunet" :
             the_model = Vggunet(configs=config)
-        elif config["model_name"] == "vggunet_usim" :
-            the_model = Vggunet_usim(configs=config)
-        elif config["model_name"] == "subject1" :
-            the_model = Subject1(configs=config)
-        elif config["model_name"] == "subject2" :
-            the_model = Subject2(configs=config)
-        elif config["model_name"] == "subject3" :
-            the_model = Subject3(configs=config)
+        elif config["model_name"] == "subject4" :
+            the_model = Subject4(configs=config)
         # hrnet = HRNet(configs=config)
 
         print(the_model.model)
@@ -106,17 +101,18 @@ if __name__ == "__main__":
             output = the_model.model.predict_on_batch(x_data)
 
             for ii in range(output.shape[0]) :
-                image_name = data_parserv.image_list[data_parserv.index_list[config["batch_size"]*i+ii]].name
-                # Image.fromarray(((softmax(output[ii])[:, :, 1] > 0.9)*255).astype(np.uint8)).save(str(saving_folder/image_name))
+
                 predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
+                image_name = f"{str(i)}_{str(ii)}.png"
+
+                # image_name = data_parserv.image_list[data_parserv.index_list[config["batch_size"]*i+ii]].name
+                # Image.fromarray(((softmax(output[ii])[:, :, 1] > 0.9)*255).astype(np.uint8)).save(str(saving_folder/image_name))
+                # predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
                 gt = np.tile(y_data[ii], (1, 1, 3))
                 merged_img = np.concatenate([x_data[ii]*255, gt, predicted], axis=1).astype(np.uint8)
                 Image.fromarray(merged_img).save(str(saving_folder/image_name))
-            
+
             i += 1
 
 
 #%%
-
-
-

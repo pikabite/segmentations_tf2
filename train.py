@@ -10,6 +10,7 @@ from tensorflow import keras as tk
 
 from models.hrnet import HRNet
 from models.vggunet import Vggunet
+from models.subject4 import Subject4
 
 from models.callback import Custom_Callback
 from dataparser.inria import Inria, Inria_v
@@ -73,22 +74,33 @@ if __name__ == "__main__":
     logger = tk.callbacks.CSVLogger(config["logger_file"], append=True)
     model_cb = Custom_Callback(config)
 
+    lr_scheduler = tk.callbacks.ReduceLROnPlateau(monitor="val_iou1")
+    # def lr_sched(epoch) :
+    #     if epoch < 100 :
+    #         return config["lr"]
+    #     elif epoch < 200 :
+    #         return 0.5 * config["lr"]
+    #     else :
+    #         return 0.25 * config["lr"]
+    # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lr_sched)
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope():
         if config["model_name"] == "hrnet" : 
-            the_model = HRNet(configs=config)
+            model = HRNet(configs=config)
         elif config["model_name"] == "vggunet" :
-            the_model = Vggunet(configs=config)
+            model = Vggunet(configs=config)
+        elif config["model_name"] == "subject4" : 
+            model = Subject4(configs=config)
 
-        print(the_model.model)
+        print(model.model)
 
 
     # print(data_parser.steps)
-    the_model.model.fit(
+    model.model.fit(
         dataset,
         epochs=config["epoch"],
-        callbacks=[model_cb, logger],
+        callbacks=[model_cb, logger, lr_scheduler],
         validation_data=datasetv,
         validation_freq=1,
         # steps_per_epoch=data_parser.steps,
@@ -96,6 +108,6 @@ if __name__ == "__main__":
         initial_epoch=config["present_epoch"]
         )
 
-    the_model.model.save(str(Path(config["save_path"])/f"model_{config['epoch']}.h5"))
+    model.model.save(str(Path(config["save_path"])/f"model_{config['epoch']}.h5"))
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 #%%
 
-class HRNet :
+class Subject4 :
 
     def __init__(self, configs) :
 
@@ -17,23 +17,16 @@ class HRNet :
         self.image_size = configs["image_size"]
         self.batch_size = configs["batch_size"]
 
-        # self.input_gt = tk.Input(shape=self.image_size, batch_size=self.batch_size, name="input_gt", dtype=tf.int32)
-
-        # tensorflow.python.framework.ops.disable_eager_mode
-        # tf.compat.v1.disable_eager_execution()
-
         self.input_image = tk.Input(shape=(self.image_size+[3]), name="input_image", dtype=tf.float32)
         self.model = self.build_model()
 
-        # self.model.summary()
-
-        # multi gpu code
-        # if len(configs["gpu_indices"]) > 1 :
-        #     self.model = tk.utils.multi_gpu_model(self.model, gpus=len(configs["gpu_indices"]))
+        self.model.summary()
 
         self.build_loss_and_op(self.model)
 
         self.load_weight(configs)
+
+        self.smoothing = 100
 
 
     def cbr (self, net, channels, name="", i=0) :
@@ -62,7 +55,7 @@ class HRNet :
         net = tk.layers.Conv2D(filters=channels, kernel_size=3, strides=downsize, padding="SAME")(input_layer)
         net = tk.layers.BatchNormalization()(net)
         net = tk.layers.ReLU(6)(net)
-        
+
         return net
 
     def upsample (self, input_layer, upsize, channels) :
@@ -79,17 +72,16 @@ class HRNet :
         net = tk.layers.ReLU(6)(net)
 
         return net
-    
+
     def build_model (self) :
 
         c = self.configs["model"]["c"]
 
         # Introducing stem
         stem1 = self.downsample(self.input_image, 2, int(c/2))
-        stem2 = self.downsample(stem1, 2, int(c/2))
 
-        after_stem2 = self.cbr(stem2, c, "after_stem2")
-        stage1 = self.stage(after_stem2, c, "stage1")
+        after_stem1 = self.cbr(stem1, c, "after_stem1")
+        stage1 = self.stage(after_stem1, c, "stage1")
 
         fused1_1 = self.cbr(stage1, c, "fused1_1")
         fused1_2 = self.downsample(stage1, 2, c*2)
@@ -129,45 +121,34 @@ class HRNet :
             self.downsample(stage3_r2, 2, c*4),
             self.cbr(stage3_r3, c*4, "fused3_3")
         ])
-        fused3_4 = tk.layers.add([
-            self.downsample(stage3_r1, 8, c*8),
-            self.downsample(stage3_r2, 4, c*8),
-            self.downsample(stage3_r3, 2, c*8),
-        ])
+        # fused3_4 = tk.layers.add([
+        #     self.downsample(stage3_r1, 8, c*8),
+        #     self.downsample(stage3_r2, 4, c*8),
+        #     self.downsample(stage3_r3, 2, c*8),
+        # ])
 
         stage4_r1 = self.stage(fused3_1, c, "stage4_r1")
         stage4_r2 = self.stage(fused3_2, c*2, "stage4_r2")
         stage4_r3 = self.stage(fused3_3, c*4, "stage4_r3")
-        stage4_r4 = self.stage(fused3_4, c*8, "stage4_r4")
-
+        # stage4_r4 = self.stage(fused3_4, c*8, "stage4_r4")
 
         upsampled_output = tk.layers.concatenate([
             stage4_r1,
             self.upsample(stage4_r2, 2, c*2),
             self.upsample(stage4_r3, 4, c*4),
-            self.upsample(stage4_r4, 8, c*8)
+            # self.upsample(stage4_r4, 8, c*8)
         ])
 
         num_classes = self.configs["num_classes"]
         logits = tk.layers.Conv2D(num_classes, 1, 1, padding="SAME")(upsampled_output)
-        
-        # print(logits.shape)
+
         # restore the size
-        # logits = tk.layers.UpSampling2D(size=2, interpolation="bilinear")(logits)
-        # logits = tk.layers.UpSampling2D(size=2, interpolation="bilinear")(logits)
         logits = tk.layers.Lambda(
             lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[1]*2, x.shape[2]*2], align_corners=True),
             output_shape=(logits.shape[1]*2, logits.shape[2]*2)
             )(logits)
-        logits = tk.layers.Lambda(
-            lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[1]*2, x.shape[2]*2], align_corners=True),
-            output_shape=(logits.shape[1]*2, logits.shape[2]*2)
-            )(logits)
-        # logits = tk.layers.Lambda(lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[2]*2, x.shape[2]*2], align_corners=True))(logits)
-        # logits = tk.layers.Lambda(lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[2]*2, x.shape[2]*2], align_corners=True))(logits)
 
         self.logits = logits
-        # self.output = tk.layers.Softmax(axis=3)(logits)
         self.output = logits
 
         model = tk.Model(inputs=self.input_image, outputs=self.output)
@@ -207,7 +188,26 @@ class HRNet :
         bce = tf.reduce_mean(bce)
 
         return bce
-        
+
+    def jaccard_loss (self, y_true, y_pred, class_number) :
+
+        y_true = self.rgb_to_label_tf(y_true, self.configs)[:, :, :, class_number]
+        y_pred = tf.nn.sigmoid(y_pred)[:, :, :, class_number]
+
+        intersection = tf.reduce_sum(tf.abs(y_true * y_pred), axis=-1)
+        sum_ = tf.reduce_sum(tf.abs(y_true) + tf.abs(y_pred), axis=-1)
+        iou = (intersection + self.smoothing) / (sum_ - intersection + self.smoothing)
+
+        return (1 - iou) * self.smoothing
+
+    def bce_jac_loss (self, y_true, y_pred) :
+
+        bce = self.bce_loss(y_true=y_true, y_pred=y_pred)
+        jac1 = self.jaccard_loss(y_true=y_true, y_pred=y_pred, class_number=1)
+
+        # return bce + self.configs["model"]["jac_coef"]*jac0 + self.configs["model"]["jac_coef"]*jac1
+        return bce + self.configs["model"]["jac_coef"]*jac1
+
 
     def iou_calculation (self, y_true, y_pred, class_number) :
 
@@ -242,7 +242,8 @@ class HRNet :
         optim = tk.optimizers.Adam(learning_rate=self.configs["lr"])
         # model.compile(optim, loss=self.sce_loss, metrics=[self.iou0, self.iou1])
         # model.compile(optim, loss=self.wce_loss, metrics=[self.iou0, self.iou1])
-        model.compile(optim, loss=self.bce_loss, metrics=[self.iou0, self.iou1])
+        # model.compile(optim, loss=self.bce_loss, metrics=[self.iou0, self.iou1])
+        model.compile(optim, loss=self.bce_jac_loss, metrics=[self.iou0, self.iou1])
 
     def rgb_to_label_tf (self, y_true, configs) :
 

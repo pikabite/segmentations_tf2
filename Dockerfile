@@ -16,7 +16,7 @@ RUN pip3 install -U git+https://github.com/albu/albumentations
 RUN python3 -m pip install --upgrade pip
 
 # RUN pip3 install gast==0.2.2
-RUN pip3 install tensorflow-gpu==2.1.0rc1
+RUN pip3 install tensorflow-gpu==2.2.0
 
 
 ENTRYPOINT ["/bin/sh", "-c", "jupyter-notebook --no-browser --port 15011 --ip=0.0.0.0 --NotebookApp.token='kdy' --allow-root --NotebookApp.password='' --NotebookApp.allow_origin='*'"]

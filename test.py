@@ -67,7 +67,7 @@ if __name__ == "__main__":
     datasetv = tf.data.Dataset.from_generator(
         data_parserv.generator,
         (tf.float32, tf.float32),
-        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 1]))
+        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
     ).batch(config["batch_size"], drop_remainder=False)
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
@@ -83,29 +83,35 @@ if __name__ == "__main__":
         print(the_model.model)
         # the_model.model.summary()
 
-    if config["test"]["eval"] : 
 
-        loss, iou0, iou1 = the_model.model.evaluate(datasetv)
+    saving_folder = Path(config["test"]["output_folder"])
+    if not saving_folder.is_dir() :
+        saving_folder.mkdir(parents=True)
 
-        print(f"loss : {loss}")
-        print(f"iou for background : {iou0}")
-        print(f"iou for foreground : {iou1}")
+    i = 0
+    for_ious = np.zeros((config["num_classes"], 2))
 
-    else : 
+    for x_data, y_data in tqdm(datasetv) :
+        output = the_model.model.predict_on_batch(x_data)
 
-        saving_folder = Path(config["test"]["output_folder"])
-        if not saving_folder.is_dir() :
-            saving_folder.mkdir(parents=True)
+        if config["test"]["eval"] : 
 
-        i = 0
-        for x_data, y_data in tqdm(datasetv) :
-            output = the_model.model.predict_on_batch(x_data)
+            argmax_out = np.argmax(output, axis=-1)
+            y_data = (y_data[:, :, :, 0]).numpy().astype(np.int32)
+            for c in range(for_ious.shape[0]) :
+                c_in_out = (argmax_out == c)*1
+                c_in_y = (y_data == c)*1
+                inters = np.sum(((c_in_out + c_in_y) == 2)*1)
+                union = np.sum(((c_in_out + c_in_y) >= 1)*1)
+
+                for_ious[c, 0] += inters
+                for_ious[c, 1] += union
+
+        else :
 
             for ii in range(output.shape[0]) :
 
                 predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
-
-
                 if config["dataset_name"] == "inria" :
 
                     # image_name = f"{str(i)}_{str(ii)}.png"
@@ -122,7 +128,10 @@ if __name__ == "__main__":
                 merged_img = np.concatenate([x_data[ii]*255, gt, predicted], axis=1).astype(np.uint8)
                 Image.fromarray(merged_img).save(str(saving_folder/image_name))
 
-            i += 1
+        i += 1
 
+    ious = for_ious[:, 0]/for_ious[:, 1]
+    print(f"Mean iou is : {str(np.mean(ious))}")
+    print(f"iou1 is : {str(ious[1])}")
 
 #%%

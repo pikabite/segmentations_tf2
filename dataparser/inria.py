@@ -72,8 +72,7 @@ class Inria () :
 
         for i in tqdm(range(len(self.image_list))) :
             img = np.asarray(Image.open(str(self.image_list[i])).convert("RGB"), dtype=np.uint8)
-            mask = np.asarray(Image.open(str(self.mask_list[i])).convert("L"), dtype=np.uint8)
-            mask = np.expand_dims(mask, axis=-1)
+            mask = np.asarray(Image.open(str(self.mask_list[i])).convert("RGB"), dtype=np.uint8)
             
             tmp_img_list.append(img)
             tmp_mask_list.append(mask)
@@ -94,15 +93,14 @@ class Inria () :
             cropped_img_path = str(self.image_list[imgi]).replace("/train/", "/train_cropped/").replace(".tif", "_" + str(cropi) + ".png")
             cropped_mask_path = str(self.mask_list[imgi]).replace("/train/", "/train_cropped/").replace(".tif", "_" + str(cropi) + ".png")
             img = np.asarray(Image.open(cropped_img_path).convert("RGB"), dtype=np.uint8)
-            mask = np.asarray(Image.open(cropped_mask_path).convert("L"), dtype=np.uint8)
-            mask = np.expand_dims(mask, axis=-1)
+            mask = np.asarray(Image.open(cropped_mask_path).convert("RGB"), dtype=np.uint8)
         else :
             img = self.image_list[imgi]
             mask = self.mask_list[imgi]
 
         img, mask = self.additional_op(img, mask, crop_index=cropi)
 
-        if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 1) :
+        if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) :
             # print(img.shape)
             # print("passed!?")
             img, mask = self.get_one_set(np.random.choice(self.index_list))
@@ -132,7 +130,7 @@ class Inria () :
         augmented = self.albu(image=x, mask=y)
 
         a_image = (augmented["image"]).astype(np.float32)/255
-        a_mask = (augmented["mask"]).astype(np.float32)
+        a_mask = (augmented["mask"]).astype(np.float32)/255
 
         return a_image, a_mask
 
@@ -192,7 +190,7 @@ class Inria_v (Inria) :
         # return util.preprocessing(x, y, options)
 
         non_a_image = (x).astype(np.float32)/255
-        non_a_mask = y.astype(np.float32)
+        non_a_mask = y.astype(np.float32)/255
         return non_a_image, non_a_mask
 
 

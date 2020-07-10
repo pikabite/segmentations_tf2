@@ -61,12 +61,12 @@ if __name__ == "__main__":
     dataset = tf.data.Dataset.from_generator(
         data_parser.generator,
         (tf.float32, tf.float32),
-        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 1]))
+        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
     ).batch(config["batch_size"], drop_remainder=True)
     datasetv = tf.data.Dataset.from_generator(
         data_parserv.generator,
         (tf.float32, tf.float32),
-        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 1]))
+        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
     ).batch(config["batch_size"], drop_remainder=True)
 
     # model checkpoint has bug in the 2.0 version so wait until 2.1 is release and use custom callback

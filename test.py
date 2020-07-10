@@ -81,6 +81,7 @@ if __name__ == "__main__":
         # hrnet = HRNet(configs=config)
 
         print(the_model.model)
+        # the_model.model.summary()
 
     if config["test"]["eval"] : 
 
@@ -103,9 +104,18 @@ if __name__ == "__main__":
             for ii in range(output.shape[0]) :
 
                 predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
-                image_name = f"{str(i)}_{str(ii)}.png"
 
-                # image_name = data_parserv.image_list[data_parserv.index_list[config["batch_size"]*i+ii]].name
+
+                if config["dataset_name"] == "inria" :
+
+                    # image_name = f"{str(i)}_{str(ii)}.png"
+                    config["batch_size"]*i+ii
+                    imgi = data_parserv.index_list[i]//data_parserv.cpi
+                    cropi = data_parserv.index_list[i]%data_parserv.cpi
+                    cropped_img_path = str(data_parserv.image_list[imgi]).replace("/train/", "/train_cropped/").replace(".tif", "_" + str(cropi) + ".png")
+                    image_name = cropped_img_path.split("/")[-1]
+                else :
+                    image_name = data_parserv.image_list[data_parserv.index_list[config["batch_size"]*i+ii]].name
                 # Image.fromarray(((softmax(output[ii])[:, :, 1] > 0.9)*255).astype(np.uint8)).save(str(saving_folder/image_name))
                 # predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
                 gt = np.tile(y_data[ii], (1, 1, 3))

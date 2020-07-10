@@ -23,6 +23,8 @@ class Inria () :
         ii = 0
         self.loaded_in_memory = False
 
+        self.image_size = configs["image_size"]
+
         # cropped image per image
         self.cpi = 1521
         self.sqrt_cpi = int(np.sqrt(self.cpi))
@@ -33,7 +35,7 @@ class Inria () :
             album.HorizontalFlip(),
             album.RGBShift(),
             album.RandomBrightness(),
-            album.RandomResizedCrop(height=256, width=256, scale=(0.7, 0.7))
+            album.RandomResizedCrop(height=self.image_size[0], width=self.image_size[1], scale=(0.7, 0.7))
         ], p=0.8)
         
         for i in range(len(self.x_path)) :
@@ -50,8 +52,8 @@ class Inria () :
         self.tot_len = ii
 
         self.shuffle = True
-        if self.shuffle :
-            np.random.shuffle(self.index_list)
+        # if self.shuffle :
+        #     np.random.shuffle(self.index_list)
 
         self.configs = configs
 
@@ -97,7 +99,7 @@ class Inria () :
         else :
             img = self.image_list[imgi]
             mask = self.mask_list[imgi]
-        
+
         img, mask = self.additional_op(img, mask, crop_index=cropi)
 
         if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 1) :
@@ -176,6 +178,7 @@ class Inria () :
 class Inria_v (Inria) :
     
     def x_y_root_paths(self, configs):
+        self.shuffle = False
         return (Path(configs["valid_image_path"]).open("r").readlines(), 
                 Path(configs["valid_mask_path"]).open("r").readlines(), 
                 Path(configs["valid_image_path"]).parent)

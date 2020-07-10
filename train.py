@@ -74,7 +74,7 @@ if __name__ == "__main__":
     logger = tk.callbacks.CSVLogger(config["logger_file"], append=True)
     model_cb = Custom_Callback(config)
 
-    lr_scheduler = tk.callbacks.ReduceLROnPlateau(monitor="val_iou1")
+    # lr_scheduler = tk.callbacks.ReduceLROnPlateau(monitor="val_iou1")
     # def lr_sched(epoch) :
     #     if epoch < 100 :
     #         return config["lr"]
@@ -100,7 +100,8 @@ if __name__ == "__main__":
     model.model.fit(
         dataset,
         epochs=config["epoch"],
-        callbacks=[model_cb, logger, lr_scheduler],
+        # callbacks=[model_cb, logger, lr_scheduler],
+        callbacks=[model_cb, logger],
         validation_data=datasetv,
         validation_freq=1,
         # steps_per_epoch=data_parser.steps,

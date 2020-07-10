@@ -18,7 +18,7 @@ class_weight : [0.5, 2.0]
 class_color_map : [0, 255]
 
 # 0 : train from 0, 1 : train continue, 2 : test
-mode : 0
+mode : 2
 present_epoch : 0
 epoch : 50
 saving_interval : 10
@@ -36,7 +36,7 @@ model :
 
 test :
     best : True
-    best_file_name : "best.h5"
-    eval : True
+    best_file_name : "best.h5" # 0.7563
+    eval : False
     output_folder : "/dy/outputs/inria_subject4"
 

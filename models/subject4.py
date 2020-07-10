@@ -20,7 +20,7 @@ class Subject4 :
         self.input_image = tk.Input(shape=(self.image_size+[3]), name="input_image", dtype=tf.float32)
         self.model = self.build_model()
 
-        self.model.summary()
+        # self.model.summary()
 
         self.build_loss_and_op(self.model)
 

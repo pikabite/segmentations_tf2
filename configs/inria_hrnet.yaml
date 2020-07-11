@@ -35,7 +35,7 @@ model :
 
 test :
     best : True
-    best_file_name : "best.h5" # acc 9651, iou 
+    best_file_name : "best.h5" # acc 9651, iou 76.63
     # best_file_name : "model_100.h5"
     eval : True
     output_folder : "/dy/outputs/inria_hrnet"

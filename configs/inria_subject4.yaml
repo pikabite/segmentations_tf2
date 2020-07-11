@@ -36,7 +36,7 @@ model :
 
 test :
     best : True
-    best_file_name : "best.h5" # 0.7563
-    eval : False
+    best_file_name : "best.h5" # 0.7567
+    eval : True
     output_folder : "/dy/outputs/inria_subject4"
 

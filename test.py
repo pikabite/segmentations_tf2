@@ -89,25 +89,24 @@ if __name__ == "__main__":
         saving_folder.mkdir(parents=True)
 
     i = 0
-    for_ious = np.zeros((config["num_classes"], 2))
+    
+    if config["test"]["eval"] : 
 
-    for x_data, y_data in tqdm(datasetv) :
-        output = the_model.model.predict_on_batch(x_data)
+        loss, accuracy, miou = the_model.model.evaluate(datasetv)
+        saving_folder = Path(config["test"]["output_folder"])
 
-        if config["test"]["eval"] : 
+        print(f"loss : {loss}")
+        print(f"accuracy : {accuracy}")
+        union_int = np.sum(the_model.miou_op.get_weights()[0], axis=0)+np.sum(the_model.miou_op.get_weights()[0], axis=1)
+        inters = np.diag(the_model.miou_op.get_weights()[0])
+        ious = inters / (union_int-inters)
+        for i in range(ious.shape[0]) :
+            print(f"iou for {i} : {ious[i]}")
+        print(f"miou : {np.mean(ious)}")
 
-            argmax_out = np.argmax(output, axis=-1)
-            y_data = (y_data[:, :, :, 0]).numpy().astype(np.int32)
-            for c in range(for_ious.shape[0]) :
-                c_in_out = (argmax_out == c)*1
-                c_in_y = (y_data == c)*1
-                inters = np.sum(((c_in_out + c_in_y) == 2)*1)
-                union = np.sum(((c_in_out + c_in_y) >= 1)*1)
-
-                for_ious[c, 0] += inters
-                for_ious[c, 1] += union
-
-        else :
+    else :
+        for x_data, y_data in tqdm(datasetv) :
+            output = the_model.model.predict_on_batch(x_data)
 
             for ii in range(output.shape[0]) :
 
@@ -130,8 +129,5 @@ if __name__ == "__main__":
 
         i += 1
 
-    ious = for_ious[:, 0]/for_ious[:, 1]
-    print(f"Mean iou is : {str(np.mean(ious))}")
-    print(f"iou1 is : {str(ious[1])}")
 
 #%%

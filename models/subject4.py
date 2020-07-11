@@ -209,6 +209,13 @@ class Subject4 :
         return bce + self.configs["model"]["jac_coef"]*jac1
 
 
+    def miou (self, y_true, y_pred) :
+
+        y_true = tf.argmax(self.rgb_to_label_tf(y_true, self.configs), axis=-1)
+        y_pred = tf.argmax(y_pred, axis=-1)
+
+        return self.miou_op(y_true, y_pred)
+
     def pixel_accuracy (self, y_true, y_pred) :
         y_true = tf.cast(tf.reduce_mean(y_true, axis=-1), dtype=tf.int32)
         y_pred = tf.argmax(y_pred, axis=-1, output_type=tf.int32)
@@ -218,10 +225,13 @@ class Subject4 :
     def build_loss_and_op (self, model) :
 
         optim = tk.optimizers.Adam(learning_rate=self.configs["lr"])
-        model.compile(optim, loss=self.bce_jac_loss, metrics=[self.iou0, self.iou1])
+        # model.compile(optim, loss=self.bce_jac_loss, metrics=[self.pixel_accuracy])
+        self.miou_op = tf.keras.metrics.MeanIoU(num_classes=self.configs["num_classes"])
+        # model.compile(optim, loss=self.bce_jac_loss, metrics=[self.pixel_accuracy, self.iou1])
+        model.compile(optim, loss=self.bce_jac_loss, metrics=[self.miou, self.pixel_accuracy])
 
     def rgb_to_label_tf (self, y_true, configs) :
-        
+
         label_true = tf.one_hot(tf.cast(tf.reduce_mean(y_true, axis=-1), tf.int32), configs["num_classes"], axis=-1)
         label_true = tf.cast(label_true, tf.float32)
         return label_true

@@ -21,7 +21,7 @@ class Custom_Callback (Callback):
         if epoch%self.configs["saving_interval"] == 0 :
             self.model.save(self.saving_file.replace("model.h5", "model_%s.h5"%(str(epoch))))
         
-        if self.best_iou < logs["val_iou1"] and self.save_best : 
+        if self.best_iou < logs["pixel_accuracy"] and self.save_best : 
             print("Save Best!")
             self.model.save(self.saving_file.replace("model.h5", "best.h5"))
-            self.best_iou = logs["val_iou1"]
+            self.best_iou = logs["pixel_accuracy"]

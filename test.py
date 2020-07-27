@@ -73,7 +73,11 @@ if __name__ == "__main__":
         data_parserv.generator,
         (tf.float32, tf.float32),
         (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
+<<<<<<< HEAD
     ).batch(config["batch_size"], drop_remainder=True)
+=======
+    ).batch(config["batch_size"], drop_remainder=False)
+>>>>>>> 6b379460608064d9beade5900bce39a0763b8d3b
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope() :
@@ -88,6 +92,7 @@ if __name__ == "__main__":
         # hrnet = HRNet(configs=config)
 
         print(the_model.model)
+        # the_model.model.summary()
 
 
     saving_folder = Path(config["test"]["output_folder"])

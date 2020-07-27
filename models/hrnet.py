@@ -37,6 +37,8 @@ class HRNet :
 
         self.load_weight(configs)
 
+        self.tmp = tf.Variable(tf.zeros((configs["num_classes"], 2)))
+
 
     def cbr (self, net, channels, name="", i=0) :
         net = tk.layers.Conv2D(filters=channels, kernel_size=1, strides=1, padding="SAME", use_bias=False)(net)
@@ -273,5 +275,3 @@ class HRNet :
             }
             self.model.load_weights(str(weight_path))
 
-
-#%%

@@ -23,6 +23,8 @@ class Inria () :
         ii = 0
         self.loaded_in_memory = False
 
+        self.image_size = configs["image_size"]
+
         # cropped image per image
         self.cpi = 1521
         self.sqrt_cpi = int(np.sqrt(self.cpi))
@@ -33,7 +35,7 @@ class Inria () :
             album.HorizontalFlip(),
             album.RGBShift(),
             album.RandomBrightness(),
-            album.RandomResizedCrop(height=256, width=256, scale=(0.7, 0.7))
+            album.RandomResizedCrop(height=self.image_size[0], width=self.image_size[1], scale=(0.7, 0.7))
         ], p=0.8)
         
         for i in range(len(self.x_path)) :
@@ -50,8 +52,8 @@ class Inria () :
         self.tot_len = ii
 
         self.shuffle = True
-        if self.shuffle :
-            np.random.shuffle(self.index_list)
+        # if self.shuffle :
+        #     np.random.shuffle(self.index_list)
 
         self.configs = configs
 
@@ -70,8 +72,7 @@ class Inria () :
 
         for i in tqdm(range(len(self.image_list))) :
             img = np.asarray(Image.open(str(self.image_list[i])).convert("RGB"), dtype=np.uint8)
-            mask = np.asarray(Image.open(str(self.mask_list[i])).convert("L"), dtype=np.uint8)
-            mask = np.expand_dims(mask, axis=-1)
+            mask = np.asarray(Image.open(str(self.mask_list[i])).convert("RGB"), dtype=np.uint8)
             
             tmp_img_list.append(img)
             tmp_mask_list.append(mask)
@@ -92,15 +93,14 @@ class Inria () :
             cropped_img_path = str(self.image_list[imgi]).replace("/train/", "/train_cropped/").replace(".tif", "_" + str(cropi) + ".png")
             cropped_mask_path = str(self.mask_list[imgi]).replace("/train/", "/train_cropped/").replace(".tif", "_" + str(cropi) + ".png")
             img = np.asarray(Image.open(cropped_img_path).convert("RGB"), dtype=np.uint8)
-            mask = np.asarray(Image.open(cropped_mask_path).convert("L"), dtype=np.uint8)
-            mask = np.expand_dims(mask, axis=-1)
+            mask = np.asarray(Image.open(cropped_mask_path).convert("RGB"), dtype=np.uint8)
         else :
             img = self.image_list[imgi]
             mask = self.mask_list[imgi]
-        
+
         img, mask = self.additional_op(img, mask, crop_index=cropi)
 
-        if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 1) :
+        if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) :
             # print(img.shape)
             # print("passed!?")
             img, mask = self.get_one_set(np.random.choice(self.index_list))
@@ -130,7 +130,7 @@ class Inria () :
         augmented = self.albu(image=x, mask=y)
 
         a_image = (augmented["image"]).astype(np.float32)/255
-        a_mask = (augmented["mask"]).astype(np.float32)
+        a_mask = (augmented["mask"]).astype(np.float32)/255
 
         return a_image, a_mask
 
@@ -176,6 +176,7 @@ class Inria () :
 class Inria_v (Inria) :
     
     def x_y_root_paths(self, configs):
+        self.shuffle = False
         return (Path(configs["valid_image_path"]).open("r").readlines(), 
                 Path(configs["valid_mask_path"]).open("r").readlines(), 
                 Path(configs["valid_image_path"]).parent)
@@ -189,7 +190,7 @@ class Inria_v (Inria) :
         # return util.preprocessing(x, y, options)
 
         non_a_image = (x).astype(np.float32)/255
-        non_a_mask = y.astype(np.float32)
+        non_a_mask = y.astype(np.float32)/255
         return non_a_image, non_a_mask
 
 

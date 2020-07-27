@@ -3,15 +3,15 @@ train_mask_path : "/datasets/open_dataset/inria/AerialImageDataset/train_labels.
 valid_image_path : "/datasets/open_dataset/inria/AerialImageDataset/val_images.txt"
 valid_mask_path : "/datasets/open_dataset/inria/AerialImageDataset/val_labels.txt"
 image_size : [256, 256]
-batch_size : 60
+batch_size : 50
 dataset_name : "inria"
 model_name : "hrnet"
 
 wce_weight : 0.5
 lr : 0.001
 
-# gpu_indices : [0, 1]
-gpu_indices : []
+gpu_indices : [0, 1]
+# gpu_indices : []
 
 num_classes : 2
 class_weight : [0.5, 2.0]
@@ -35,8 +35,8 @@ model :
 
 test :
     best : True
-    best_file_name : "best.h5"
+    best_file_name : "best.h5" # acc 9651, iou 76.63
     # best_file_name : "model_100.h5"
-    eval : False
+    eval : True
     output_folder : "/dy/outputs/inria_hrnet"
 

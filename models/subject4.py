@@ -20,7 +20,7 @@ class Subject4 :
         self.input_image = tk.Input(shape=(self.image_size+[3]), name="input_image", dtype=tf.float32)
         self.model = self.build_model()
 
-        self.model.summary()
+        # self.model.summary()
 
         self.build_loss_and_op(self.model)
 
@@ -209,54 +209,31 @@ class Subject4 :
         return bce + self.configs["model"]["jac_coef"]*jac1
 
 
-    def iou_calculation (self, y_true, y_pred, class_number) :
+    def miou (self, y_true, y_pred) :
 
-        i = class_number
-        y_true = self.rgb_to_label_tf(y_true, self.configs)
+        y_true = tf.argmax(self.rgb_to_label_tf(y_true, self.configs), axis=-1)
+        y_pred = tf.argmax(y_pred, axis=-1)
 
-        if self.configs["num_classes"] == 1 :
-            y_pred = tf.where(condition=tf.greater_equal(y_pred, 0.5), x=1, y=0)
-            y_pred_for_i = y_pred
-            y_pred_for_i = tf.cast(y_pred_for_i, dtype=tf.float32)
-            sumsum = y_true + y_pred_for_i
-        else :
-            y_pred = tf.argmax(y_pred, axis=3)
-            y_pred_for_i = tf.where(condition=tf.equal(y_pred, i), x=1, y=0)
-            y_pred_for_i = tf.cast(y_pred_for_i, dtype=tf.float32)
-            sumsum = y_true[:, :, :, i] + y_pred_for_i
+        return self.miou_op(y_true, y_pred)
 
-        inters = tf.reduce_sum(tf.where(condition=tf.equal(sumsum, 2), x=1, y=0))
-        union = tf.reduce_sum(tf.where(condition=tf.greater_equal(sumsum, 1), x=1, y=0))
-        iou = inters/union
-
-        return iou
-
-    def iou0 (self, y_true, y_pred) :
-        return self.iou_calculation(y_true, y_pred, 0)
-    
-    def iou1 (self, y_true, y_pred) :
-        return self.iou_calculation(y_true, y_pred, 1)
+    def pixel_accuracy (self, y_true, y_pred) :
+        y_true = tf.cast(tf.reduce_mean(y_true, axis=-1), dtype=tf.int32)
+        y_pred = tf.argmax(y_pred, axis=-1, output_type=tf.int32)
+        tmp = tf.where(condition=tf.equal(y_true, y_pred), x=1, y=0)
+        return tf.reduce_mean(tf.cast(tmp, dtype=tf.float32))
 
     def build_loss_and_op (self, model) :
 
         optim = tk.optimizers.Adam(learning_rate=self.configs["lr"])
-        # model.compile(optim, loss=self.sce_loss, metrics=[self.iou0, self.iou1])
-        # model.compile(optim, loss=self.wce_loss, metrics=[self.iou0, self.iou1])
-        # model.compile(optim, loss=self.bce_loss, metrics=[self.iou0, self.iou1])
-        model.compile(optim, loss=self.bce_jac_loss, metrics=[self.iou0, self.iou1])
+        # model.compile(optim, loss=self.bce_jac_loss, metrics=[self.pixel_accuracy])
+        self.miou_op = tf.keras.metrics.MeanIoU(num_classes=self.configs["num_classes"])
+        # model.compile(optim, loss=self.bce_jac_loss, metrics=[self.pixel_accuracy, self.iou1])
+        model.compile(optim, loss=self.bce_jac_loss, metrics=[self.miou, self.pixel_accuracy])
 
     def rgb_to_label_tf (self, y_true, configs) :
 
-        label_true = []
-        for i in range(len(configs["class_color_map"])) :
-            label = tf.where(condition=tf.equal(y_true, configs["class_color_map"][i]), x=1, y=0)
-            label_true.append(label)
-
-        label_true = tf.concat(label_true, axis=-1)
+        label_true = tf.one_hot(tf.cast(tf.reduce_mean(y_true, axis=-1), tf.int32), configs["num_classes"], axis=-1)
         label_true = tf.cast(label_true, tf.float32)
-
-        # print(label_true)
-
         return label_true
 
     def load_weight (self, configs) :
@@ -269,8 +246,7 @@ class Subject4 :
             custom_objs = {
                 # "sce_loss" : self.sce_loss,
                 "wce_loss" : self.wce_loss,
-                "iou0" : self.iou0,
-                "iou1" : self.iou1
+                "pixel_accuracy" : self.pixel_accuracy
             }
             self.model.load_weights(str(weight_path))
         elif configs["mode"] == 2 and configs["test"]["best"] :
@@ -280,8 +256,7 @@ class Subject4 :
             custom_objs = {
                 # "sce_loss" : self.sce_loss,
                 "wce_loss" : self.wce_loss,
-                "iou0" : self.iou0,
-                "iou1" : self.iou1
+                "pixel_accuracy" : self.pixel_accuracy
             }
             self.model.load_weights(str(weight_path))
 

@@ -12,8 +12,10 @@ from tensorflow import keras as tk
 from models.hrnet import HRNet
 from models.vggunet import Vggunet
 from models.subject4 import Subject4
+from models.bisenet import Bisenet
 
 from dataparser.inria import Inria, Inria_v
+from dataparser.ade20k import Ade20k, Ade20k_v
 
 from PIL import Image
 
@@ -38,6 +40,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = yaml.load("".join(Path(args.config).open("r").readlines()), Loader=yaml.FullLoader)
+    # config = yaml.load("".join(Path("configs/ade20k_bisenet.yaml").open("r").readlines()), Loader=yaml.FullLoader)
 
     print("=====================config=====================")
     for v in config.keys() :
@@ -62,13 +65,15 @@ if __name__ == "__main__":
 
     if config["dataset_name"] == "inria" :
         data_parserv = Inria_v(config)
+    if config["dataset_name"] == "ade20k" :
+        data_parserv = Ade20k_v(config)
 
     repeatv = config["epoch"]*data_parserv.steps
     datasetv = tf.data.Dataset.from_generator(
         data_parserv.generator,
         (tf.float32, tf.float32),
-        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 1]))
-    ).batch(config["batch_size"], drop_remainder=False)
+        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
+    ).batch(config["batch_size"], drop_remainder=True)
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope() :
@@ -78,41 +83,59 @@ if __name__ == "__main__":
             the_model = Vggunet(configs=config)
         elif config["model_name"] == "subject4" :
             the_model = Subject4(configs=config)
+        elif config["model_name"] == "bisenet" :
+            the_model = Bisenet(configs=config)
         # hrnet = HRNet(configs=config)
 
         print(the_model.model)
 
+
+    saving_folder = Path(config["test"]["output_folder"])
+    if not saving_folder.is_dir() :
+        saving_folder.mkdir(parents=True)
+
+    i = 0
+    
     if config["test"]["eval"] : 
 
-        loss, iou0, iou1 = the_model.model.evaluate(datasetv)
+        loss, accuracy, miou = the_model.model.evaluate(datasetv)
+        saving_folder = Path(config["test"]["output_folder"])
 
         print(f"loss : {loss}")
-        print(f"iou for background : {iou0}")
-        print(f"iou for foreground : {iou1}")
+        print(f"accuracy : {accuracy}")
+        union_int = np.sum(the_model.miou_op.get_weights()[0], axis=0)+np.sum(the_model.miou_op.get_weights()[0], axis=1)
+        inters = np.diag(the_model.miou_op.get_weights()[0])
+        ious = inters / (union_int-inters+1)
+        for i in range(ious.shape[0]) :
+            print(f"iou for {i} : {ious[i]}")
 
-    else : 
+        # print(f"miou : {np.mean(ious)}")
+        print(f"miou : {np.mean(ious[ious!=0])}")
 
-        saving_folder = Path(config["test"]["output_folder"])
-        if not saving_folder.is_dir() :
-            saving_folder.mkdir(parents=True)
-
-        i = 0
+    else :
         for x_data, y_data in tqdm(datasetv) :
             output = the_model.model.predict_on_batch(x_data)
 
             for ii in range(output.shape[0]) :
 
-                predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
-                image_name = f"{str(i)}_{str(ii)}.png"
+                predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))), axis=-1), (1, 1, 3))
+                if config["dataset_name"] == "inria" :
 
-                # image_name = data_parserv.image_list[data_parserv.index_list[config["batch_size"]*i+ii]].name
+                    # image_name = f"{str(i)}_{str(ii)}.png"
+                    config["batch_size"]*i+ii
+                    imgi = data_parserv.index_list[i]//data_parserv.cpi
+                    cropi = data_parserv.index_list[i]%data_parserv.cpi
+                    cropped_img_path = str(data_parserv.image_list[imgi]).replace("/train/", "/train_cropped/").replace(".tif", "_" + str(cropi) + ".png")
+                    image_name = cropped_img_path.split("/")[-1]
+                else :
+                    image_name = data_parserv.image_list[data_parserv.index_list[config["batch_size"]*i+ii]].name
                 # Image.fromarray(((softmax(output[ii])[:, :, 1] > 0.9)*255).astype(np.uint8)).save(str(saving_folder/image_name))
                 # predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
-                gt = np.tile(y_data[ii], (1, 1, 3))
-                merged_img = np.concatenate([x_data[ii]*255, gt, predicted], axis=1).astype(np.uint8)
+                # gt = np.tile(y_data[ii], (1, 1, 3))
+                merged_img = np.concatenate([x_data[ii]*255, y_data[ii], predicted], axis=1).astype(np.uint8)
                 Image.fromarray(merged_img).save(str(saving_folder/image_name))
 
-            i += 1
+        i += 1
 
 
 #%%

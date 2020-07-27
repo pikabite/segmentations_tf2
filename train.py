@@ -8,13 +8,16 @@ import os
 import tensorflow as tf
 from tensorflow import keras as tk
 
+tf.compat.v1.disable_eager_execution()
+
 from models.hrnet import HRNet
 from models.vggunet import Vggunet
 from models.subject4 import Subject4
+from models.bisenet import Bisenet
 
 from models.callback import Custom_Callback
 from dataparser.inria import Inria, Inria_v
-
+from dataparser.ade20k import Ade20k, Ade20k_v
 
 #%%
 
@@ -54,6 +57,9 @@ if __name__ == "__main__":
     if config["dataset_name"] == "inria" :
         data_parser = Inria(config)
         data_parserv = Inria_v(config)
+    if config["dataset_name"] == "ade20k" :
+        data_parser = Ade20k(config)
+        data_parserv = Ade20k_v(config)
 
 
     repeat = config["epoch"]*data_parser.steps
@@ -61,28 +67,26 @@ if __name__ == "__main__":
     dataset = tf.data.Dataset.from_generator(
         data_parser.generator,
         (tf.float32, tf.float32),
-        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 1]))
+        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
     ).batch(config["batch_size"], drop_remainder=True)
     datasetv = tf.data.Dataset.from_generator(
         data_parserv.generator,
         (tf.float32, tf.float32),
-        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 1]))
+        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
     ).batch(config["batch_size"], drop_remainder=True)
 
-    # model checkpoint has bug in the 2.0 version so wait until 2.1 is release and use custom callback
-    # saver = tk.callbacks.ModelCheckpoint(config["save_path"])
     logger = tk.callbacks.CSVLogger(config["logger_file"], append=True)
     model_cb = Custom_Callback(config)
 
-    lr_scheduler = tk.callbacks.ReduceLROnPlateau(monitor="val_iou1")
-    # def lr_sched(epoch) :
-    #     if epoch < 100 :
-    #         return config["lr"]
-    #     elif epoch < 200 :
-    #         return 0.5 * config["lr"]
-    #     else :
-    #         return 0.25 * config["lr"]
-    # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lr_sched)
+    # lr_scheduler = tk.callbacks.ReduceLROnPlateau(monitor="val_loss")
+    def lr_sched(epoch) :
+        if epoch < 50 :
+            return config["lr"]
+        elif epoch < 100 :
+            return 0.5 * config["lr"]
+        else :
+            return 0.25 * config["lr"]
+    lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lr_sched)
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope():
@@ -92,15 +96,19 @@ if __name__ == "__main__":
             model = Vggunet(configs=config)
         elif config["model_name"] == "subject4" : 
             model = Subject4(configs=config)
+        elif config["model_name"] == "bisenet" : 
+            model = Bisenet(configs=config)
 
         print(model.model)
 
+    print("model loaded")
 
     # print(data_parser.steps)
     model.model.fit(
         dataset,
         epochs=config["epoch"],
         callbacks=[model_cb, logger, lr_scheduler],
+        # callbacks=[model_cb, logger],
         validation_data=datasetv,
         validation_freq=1,
         # steps_per_epoch=data_parser.steps,

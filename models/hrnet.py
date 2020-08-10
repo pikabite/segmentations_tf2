@@ -9,8 +9,6 @@ from pathlib import Path
 
 #%%
 
-BN_MOM = 0.1
-
 class HRNet :
 
     def __init__(self, configs) :
@@ -26,6 +24,7 @@ class HRNet :
 
         self.input_image = tk.Input(shape=(self.image_size+[3]), name="input_image", dtype=tf.float32)
         self.model = self.build_model()
+        self.model.trainable = True
 
         # self.model.summary()
 
@@ -40,25 +39,37 @@ class HRNet :
         self.tmp = tf.Variable(tf.zeros((configs["num_classes"], 2)))
 
 
-    def cbr (self, net, channels, name="", i=0) :
-        net = tk.layers.Conv2D(filters=channels, kernel_size=1, strides=1, padding="SAME", use_bias=False)(net)
-        net = tk.layers.BatchNormalization(momentum=BN_MOM)(net)
-        net = tk.layers.ReLU(6, name=name + "_1_" + str(i))(net)
+    def cbr (self, net, channels, name="", i=0, k=1) :
+        net = tk.layers.Conv2D(filters=channels, kernel_size=k, strides=1, padding="SAME", use_bias=False)(net)
+        net = tk.layers.BatchNormalization()(net)
+        net = tk.layers.ReLU(name=name + str(i))(net)
         return net
     
-    def cb (self, net, channels) :
-        net = tk.layers.Conv2D(filters=channels, kernel_size=3, strides=1, padding="SAME", use_bias=False)(net)
-        net = tk.layers.BatchNormalization(momentum=BN_MOM)(net)
+    def cb (self, net, channels, k=3) :
+        net = tk.layers.Conv2D(filters=channels, kernel_size=k, strides=1, padding="SAME", use_bias=False)(net)
+        net = tk.layers.BatchNormalization()(net)
         return net
 
-    def stage (self, input_layer, channels, name="") :
+    def stage1 (self, input_layer, channels, name="") :
         net = input_layer
         for i in range(4) :
             residual = net
-            net = self.cbr(net, channels, name, i)
+            net = self.cbr(net, channels, name+"_1", i)
+            net = self.cbr(net, channels, name+"_2", i, k=3)
             net = self.cb(net, channels)
             net = tk.layers.Add()([net, residual])
-            net = tk.layers.ReLU(6, name=name + "_2_" + str(i))(net)
+            net = tk.layers.ReLU(name=name + "_2_" + str(i))(net)
+        return net
+    
+    def stage2 (self, input_layer, channels, multiple=1, name="") :
+        net = input_layer
+        for ii in range(multiple) :
+            residual = net
+            for i in range(4) :
+                net = self.cbr(net, channels, name+"_1", str(ii)+str(i), k=3)
+                net = self.cb(net, channels, k=3)
+                net = tk.layers.Add()([net, residual])
+                net = tk.layers.ReLU(name=name + "_r1" + str(ii)+str(i))(net)
         return net
 
     def downsample (self, input_layer, downsize, channels) :
@@ -66,7 +77,7 @@ class HRNet :
         residual = input_layer
         net = tk.layers.Conv2D(filters=channels, kernel_size=1, strides=1, padding="SAME", use_bias=False)(input_layer)
         net = tk.layers.BatchNormalization()(net)
-        net = tk.layers.ReLU(6)(net)
+        net = tk.layers.ReLU()(net)
         net = tk.layers.Conv2D(filters=channels, kernel_size=3, strides=downsize, padding="SAME", use_bias=False)(input_layer)
         net = tk.layers.BatchNormalization()(net)
 
@@ -74,7 +85,7 @@ class HRNet :
         residual = tk.layers.BatchNormalization()(residual)
 
         net = tk.layers.Add()([net, residual])
-        net = tk.layers.ReLU(6)(net)
+        net = tk.layers.ReLU()(net)
         
         return net
 
@@ -82,17 +93,17 @@ class HRNet :
 
         net = tk.layers.Conv2D(channels, 1, 1, padding="SAME", use_bias=False)(input_layer)
         net = tk.layers.BatchNormalization()(net)
-        net = tk.layers.ReLU(6)(net)
+        net = tk.layers.ReLU()(net)
         net = tk.layers.Conv2D(channels, 3, 1, padding="SAME", use_bias=False)(input_layer)
         net = tk.layers.BatchNormalization()(net)
-        net = tk.layers.ReLU(6)(net)
+        net = tk.layers.ReLU()(net)
         # net = tk.layers.UpSampling2D(size=upsize, interpolation="bilinear")(net)
         net = tk.layers.Lambda(
             lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[1]*upsize, x.shape[2]*upsize], align_corners=True),
             output_shape=(net.shape[1]*upsize, net.shape[2]*upsize)
             )(net)
         net = tk.layers.BatchNormalization()(net)
-        net = tk.layers.ReLU(6)(net)
+        net = tk.layers.ReLU()(net)
 
         return net
     
@@ -105,13 +116,13 @@ class HRNet :
         stem2 = self.downsample(stem1, 2, int(c/2))
 
         after_stem2 = self.cbr(stem2, c, "after_stem2")
-        stage1 = self.stage(after_stem2, c, "stage1")
+        stage1 = self.stage1(after_stem2, c, "stage1")
 
         fused1_1 = self.cbr(stage1, c, "fused1_1")
         fused1_2 = self.downsample(stage1, 2, c*2)
 
-        stage2_r1 = self.stage(fused1_1, c, "stage2_r1")
-        stage2_r2 = self.stage(fused1_2, c*2, "stage2_r2")
+        stage2_r1 = self.stage2(fused1_1, c, 1, "stage2_r1")
+        stage2_r2 = self.stage2(fused1_2, c*2, 1, "stage2_r2")
 
         fused2_1 = tk.layers.add([
             self.cbr(stage2_r1, c, "fused2_1"),
@@ -126,9 +137,9 @@ class HRNet :
             self.downsample(stage2_r2, 2, c*4)
         ])
 
-        stage3_r1 = self.stage(fused2_1, c, "stage3_r1")
-        stage3_r2 = self.stage(fused2_2, c*2, "stage3_r2")
-        stage3_r3 = self.stage(fused2_3, c*4, "stage3_r3")
+        stage3_r1 = self.stage2(fused2_1, c, 4, "stage3_r1")
+        stage3_r2 = self.stage2(fused2_2, c*2, 4, "stage3_r2")
+        stage3_r3 = self.stage2(fused2_3, c*4, 4, "stage3_r3")
 
         fused3_1 = tk.layers.add([
             self.cbr(stage3_r1, c, "fused3_1"),
@@ -151,11 +162,10 @@ class HRNet :
             self.downsample(stage3_r3, 2, c*8),
         ])
 
-        stage4_r1 = self.stage(fused3_1, c, "stage4_r1")
-        stage4_r2 = self.stage(fused3_2, c*2, "stage4_r2")
-        stage4_r3 = self.stage(fused3_3, c*4, "stage4_r3")
-        stage4_r4 = self.stage(fused3_4, c*8, "stage4_r4")
-
+        stage4_r1 = self.stage2(fused3_1, c, 3, "stage4_r1")
+        stage4_r2 = self.stage2(fused3_2, c*2, 3, "stage4_r2")
+        stage4_r3 = self.stage2(fused3_3, c*4, 3, "stage4_r3")
+        stage4_r4 = self.stage2(fused3_4, c*8, 3, "stage4_r4")
 
         upsampled_output = tk.layers.concatenate([
             stage4_r1,
@@ -179,8 +189,6 @@ class HRNet :
             lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[1]*2, x.shape[2]*2], align_corners=True),
             output_shape=(logits.shape[1]*2, logits.shape[2]*2)
             )(logits)
-        # logits = tk.layers.Lambda(lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[2]*2, x.shape[2]*2], align_corners=True))(logits)
-        # logits = tk.layers.Lambda(lambda x: tf.compat.v1.image.resize_bilinear(x, [x.shape[2]*2, x.shape[2]*2], align_corners=True))(logits)
 
         self.logits = logits
         # self.output = tk.layers.Softmax(axis=3)(logits)
@@ -209,12 +217,12 @@ class HRNet :
         y_true = self.rgb_to_label_tf(y_true, self.configs)
 
         # class_weights = tf.reduce_sum(tf.constant([self.configs["class_weight"]]) * y_true, axis=3)
-        sce = tf.nn.softmax_cross_entropy_with_logits(y_true, y_pred)
+        sce = tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred, axis=-1)
         # sce = tf.reduce_mean(sce * class_weights)
         sce = tf.reduce_mean(sce)
 
         return sce
-    
+
     def bce_loss (self, y_true, y_pred) :
 
         y_true = self.rgb_to_label_tf(y_true, self.configs)
@@ -227,7 +235,8 @@ class HRNet :
 
     def miou (self, y_true, y_pred) :
 
-        y_true = tf.argmax(self.rgb_to_label_tf(y_true, self.configs), axis=-1)
+        y_true = tf.cast(tf.reduce_mean(y_true, axis=-1), dtype=tf.int32)
+        y_pred = tf.nn.softmax(y_pred, axis=-1)
         y_pred = tf.argmax(y_pred, axis=-1)
 
         return self.miou_op(y_true, y_pred)
@@ -241,14 +250,17 @@ class HRNet :
     def build_loss_and_op (self, model) :
 
         self.miou_op = tk.metrics.MeanIoU(num_classes=self.configs["num_classes"])
-        optim = tk.optimizers.Adam(learning_rate=self.configs["lr"])
+        # optim = tk.optimizers.Adam(learning_rate=self.configs["lr"], decay=self.configs["lr_decay"])
+        optim = tk.optimizers.SGD(learning_rate=self.configs["lr"], decay=self.configs["lr_decay"], momentum=0.9)
+        # optim = tk.optimizers.Adagrad(learning_rate=self.configs["lr"])
         self.optim = optim
         model.compile(optim, loss=self.sce_loss, metrics=[self.pixel_accuracy, self.miou])
 
     def rgb_to_label_tf (self, y_true, configs) :
         
-        label_true = tf.one_hot(tf.cast(tf.reduce_mean(y_true, axis=-1), tf.int32), configs["num_classes"], axis=-1)
-        label_true = tf.cast(label_true, tf.float32)
+        y_true = tf.cast(y_true, dtype=tf.int32)
+        label_true = tf.one_hot(tf.reduce_mean(y_true, axis=-1), configs["num_classes"], axis=-1)
+        # label_true = tf.cast(label_true, tf.float32)
         return label_true
 
     def load_weight (self, configs) :
@@ -258,6 +270,7 @@ class HRNet :
             pass
         elif configs["mode"] == 1 or (configs["mode"] == 2 and not configs["test"]["best"]) :
             weight_path = Path(configs["save_path"])/(f"model_{str(configs['present_epoch'])}.h5")
+            print(weight_path)
             custom_objs = {
                 "sce_loss" : self.sce_loss,
                 "pixel_accuracy" : self.pixel_accuracy,
@@ -267,7 +280,7 @@ class HRNet :
         elif configs["mode"] == 2 and configs["test"]["best"] :
             # weight_path = Path(configs["save_path"])/"best.h5"
             weight_path = Path(configs["save_path"])/configs["test"]["best_file_name"]
-            # print(weight_path)
+            print(weight_path)
             custom_objs = {
                 "sce_loss" : self.sce_loss,
                 "pixel_accuracy" : self.pixel_accuracy,

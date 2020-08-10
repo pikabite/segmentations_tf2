@@ -40,7 +40,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = yaml.load("".join(Path(args.config).open("r").readlines()), Loader=yaml.FullLoader)
-    # config = yaml.load("".join(Path("configs/ade20k_bisenet.yaml").open("r").readlines()), Loader=yaml.FullLoader)
+    # config = yaml.load("".join(Path("configs/ade20k_hrnet.yaml").open("r").readlines()), Loader=yaml.FullLoader)
 
     print("=====================config=====================")
     for v in config.keys() :
@@ -73,11 +73,7 @@ if __name__ == "__main__":
         data_parserv.generator,
         (tf.float32, tf.float32),
         (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
-<<<<<<< HEAD
-    ).batch(config["batch_size"], drop_remainder=True)
-=======
     ).batch(config["batch_size"], drop_remainder=False)
->>>>>>> 6b379460608064d9beade5900bce39a0763b8d3b
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope() :
@@ -89,18 +85,18 @@ if __name__ == "__main__":
             the_model = Subject4(configs=config)
         elif config["model_name"] == "bisenet" :
             the_model = Bisenet(configs=config)
-        # hrnet = HRNet(configs=config)
 
         print(the_model.model)
-        # the_model.model.summary()
-
+        dist_datasetv = mirrored_strategy.experimental_distribute_dataset(datasetv)
+        
+        the_model.miou_op.reset_states()
 
     saving_folder = Path(config["test"]["output_folder"])
     if not saving_folder.is_dir() :
         saving_folder.mkdir(parents=True)
 
     i = 0
-    
+# %%
     if config["test"]["eval"] : 
 
         loss, accuracy, miou = the_model.model.evaluate(datasetv)
@@ -118,11 +114,11 @@ if __name__ == "__main__":
         print(f"miou : {np.mean(ious[ious!=0])}")
 
     else :
+        # for x_data, y_data in tqdm(dist_datasetv) :
         for x_data, y_data in tqdm(datasetv) :
-            output = the_model.model.predict_on_batch(x_data)
+            output = the_model.model(x_data, training=False)
 
             for ii in range(output.shape[0]) :
-
                 predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))), axis=-1), (1, 1, 3))
                 if config["dataset_name"] == "inria" :
 
@@ -144,3 +140,14 @@ if __name__ == "__main__":
 
 
 #%%
+
+if False :
+
+# %%
+
+    for x_data, y_data in tqdm(datasetv) :
+        output = the_model.model(x_data, training=False)
+
+        break
+
+# %%

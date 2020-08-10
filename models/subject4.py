@@ -225,9 +225,7 @@ class Subject4 :
     def build_loss_and_op (self, model) :
 
         optim = tk.optimizers.Adam(learning_rate=self.configs["lr"])
-        # model.compile(optim, loss=self.bce_jac_loss, metrics=[self.pixel_accuracy])
         self.miou_op = tf.keras.metrics.MeanIoU(num_classes=self.configs["num_classes"])
-        # model.compile(optim, loss=self.bce_jac_loss, metrics=[self.pixel_accuracy, self.iou1])
         model.compile(optim, loss=self.bce_jac_loss, metrics=[self.miou, self.pixel_accuracy])
 
     def rgb_to_label_tf (self, y_true, configs) :

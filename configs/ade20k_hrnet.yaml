@@ -1,17 +1,16 @@
-train_image_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/train_images.txt"
-train_mask_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/train_gts.txt"
-valid_image_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/valid_images.txt"
-valid_mask_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/valid_gts.txt"
+train_image_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/train_images.txt"
+train_mask_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/train_gts.txt"
+valid_image_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/valid_images.txt"
+valid_mask_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/valid_gts.txt"
 image_size : [480, 480]
-batch_size : 30
+batch_size : 16
 dataset_name : "ade20k"
 model_name : "hrnet"
 
-wce_weight : 0.5
-lr : 0.001
-lr_decay : 0.001
+lr : 0.01
+lr_decay : 0.0001
 
-gpu_indices : [2, 3]
+gpu_indices : [0, 1]
 
 num_classes : 151
 class_weight : [0.5, 2.0]
@@ -20,7 +19,7 @@ class_color_map : []
 # 0 : train from 0, 1 : train continue, 2 : test
 mode : 0
 present_epoch : 0
-epoch : 200
+epoch : 100
 saving_interval : 10
 save_best : True
 
@@ -30,7 +29,7 @@ logger_file : "/dy/logs/ade20k_hrnet.csv"
 
 
 model :
-    c : 64
+    c : 32
 
 test :
     best : True

@@ -155,9 +155,9 @@ class Bisenet :
 
         self.miou_op = tk.metrics.MeanIoU(num_classes=self.configs["num_classes"])
 
-        optim = tk.optimizers.Adam(learning_rate=self.configs["lr"])
-        # model.compile(optim, loss=self.sce_loss, metrics=[self.iou0, self.iou1])
-        model.compile(optim, loss=self.sce_loss, metrics=[self.pixel_accuracy, self.miou])
+        self.optim = tk.optimizers.Adam(learning_rate=self.configs["lr"])
+        # model.compile(self.optim, loss=self.sce_loss, metrics=[self.iou0, self.iou1])
+        # model.compile(self.optim, loss=self.sce_loss, metrics=[self.pixel_accuracy, self.miou])
 
 
     def rgb_to_label_tf (self, y_true, configs) :

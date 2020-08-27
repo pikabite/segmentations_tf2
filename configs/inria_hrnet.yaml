@@ -18,7 +18,7 @@ class_weight : [0.5, 2.0]
 class_color_map : [0, 255]
 
 # 0 : train from 0, 1 : train continue, 2 : test
-mode : 2
+mode : 0
 present_epoch : 0
 epoch : 200
 saving_interval : 300

@@ -64,9 +64,12 @@ if __name__ == "__main__":
     if config["dataset_name"] == "ade20k" :
         data_parser = Ade20k(config)
         data_parserv = Ade20k_v(config)
+<<<<<<< HEAD
     if config["dataset_name"] == "cityscape" :
         data_parser = Cityscape(config)
         data_parserv = Cityscape_v(config)
+=======
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope():
@@ -84,16 +87,27 @@ if __name__ == "__main__":
             data_parser.generator,
             (tf.float32, tf.float32),
             # (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
+<<<<<<< HEAD
             (tf.TensorShape([None, None, 3]), tf.TensorShape([None, None]))
+=======
+            (tf.TensorShape([None, None, 3]), tf.TensorShape([None, None, 3]))
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
         ).batch(config["batch_size"], drop_remainder=True)
 
         datasetv = tf.data.Dataset.from_generator(
             data_parserv.generator,
             (tf.float32, tf.float32),
             # (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
+<<<<<<< HEAD
             (tf.TensorShape([None, None, 3]), tf.TensorShape([None, None]))
         ).batch(config["batch_size"], drop_remainder=True)
 
+=======
+            (tf.TensorShape([None, None, 3]), tf.TensorShape([None, None, 3]))
+        ).batch(config["batch_size"], drop_remainder=True)
+
+
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
         dist_dataset = mirrored_strategy.experimental_distribute_dataset(dataset)
         dist_datasetv = mirrored_strategy.experimental_distribute_dataset(datasetv)
 
@@ -163,7 +177,11 @@ if __name__ == "__main__":
 
         for e in range(config["present_epoch"], config["epoch"]) :
 
+<<<<<<< HEAD
             # K.set_value(model.optim.learning_rate, set_lr(e))
+=======
+            K.set_value(model.optim.learning_rate, set_lr(e))
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
 
             losses = []
             # tqdm_s = tqdm(range(data_parser.steps))
@@ -173,7 +191,11 @@ if __name__ == "__main__":
                 mean_loss = train_step(s)
                 losses.append(mean_loss.numpy())
                 tqdm_s.set_description_str(f"Loss : {str(np.mean(losses))}")
+<<<<<<< HEAD
             print(f"Epoch : {str(e)}, Loss : {str(np.mean(losses))}")
+=======
+            print(f"Epoch : {str(e)}, Loss : {str(mean_loss.numpy())}")
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
 
             accus, mious = [], []
             # tqdm_sv = tqdm(range(data_parserv.steps))
@@ -206,6 +228,7 @@ if __name__ == "__main__":
 
     # repeat = config["epoch"]*data_parser.steps
     # repeatv = config["epoch"]*data_parserv.steps
+<<<<<<< HEAD
     # with mirrored_strategy.scope():
     #     dataset = tf.data.Dataset.from_generator(
     #         data_parser.generator,
@@ -217,6 +240,18 @@ if __name__ == "__main__":
     #         (tf.float32, tf.float32),
     #         (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
     #     ).batch(config["batch_size"], drop_remainder=True)
+=======
+    # dataset = tf.data.Dataset.from_generator(
+    #     data_parser.generator,
+    #     (tf.float32, tf.float32),
+    #     (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
+    # ).batch(config["batch_size"], drop_remainder=True)
+    # datasetv = tf.data.Dataset.from_generator(
+    #     data_parserv.generator,
+    #     (tf.float32, tf.float32),
+    #     (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
+    # ).batch(config["batch_size"], drop_remainder=True)
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
 
     # logger = tk.callbacks.CSVLogger(config["logger_file"], append=True)
     # model_cb = Custom_Callback(config)
@@ -231,7 +266,11 @@ if __name__ == "__main__":
     #         return 0.25 * config["lr"]
     # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lr_sched)
 
+<<<<<<< HEAD
     # print(model.model)
+=======
+    #     print(model.model)
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
 
     # print("model loaded")
 

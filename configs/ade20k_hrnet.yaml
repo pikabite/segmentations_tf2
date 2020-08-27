@@ -1,10 +1,9 @@
-train_image_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/train_images.txt"
-train_mask_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/train_gts.txt"
-valid_image_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/valid_images.txt"
-valid_mask_path : "/datasets/outsourced_dataset/ade20k/ADEChallengeData2016/valid_gts.txt"
-# image_size : [480, 480]
-image_size : [256, 256]
-batch_size : 80
+train_image_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/train_images.txt"
+train_mask_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/train_gts.txt"
+valid_image_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/valid_images.txt"
+valid_mask_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/valid_gts.txt"
+image_size : [480, 480]
+batch_size : 16
 dataset_name : "ade20k"
 model_name : "hrnet"
 
@@ -18,8 +17,8 @@ class_weight : [0.5, 2.0]
 class_color_map : []
 
 # 0 : train from 0, 1 : train continue, 2 : test
-mode : 1
-present_epoch : 50
+mode : 0
+present_epoch : 0
 epoch : 100
 saving_interval : 10
 save_best : True

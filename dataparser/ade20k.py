@@ -20,6 +20,7 @@ class Ade20k () :
         self.index_list = []
         self.loaded_in_memory = False
 
+<<<<<<< HEAD
         self.aug = True
         self.x_path, self.y_path, root_path = self.x_y_root_paths(configs)
 
@@ -28,6 +29,24 @@ class Ade20k () :
             # vv = Path(self.y_path[i].strip().replace("outsourced_dataset", "open_dataset"))
             v = Path(self.x_path[i].strip())
             vv = Path(self.y_path[i].strip())
+=======
+        self.albu = album.Compose([
+            album.VerticalFlip(),
+            album.HorizontalFlip(),
+            album.RGBShift(),
+            album.RandomBrightness(),
+            # album.Resize(configs["image_size"][0], configs["image_size"][1], always_apply=True, interpolation=cv2.INTER_LINEAR, p=1),
+            # album.RandomResizedCrop(height=configs["image_size"][0], width=configs["image_size"][1], scale=(0.7, 0.7), always_apply=True),
+            # album.Normalize(mean=(0.40760392, 0.45795686, 0.48501961), always_apply=True)
+            # album.CenterCrop(configs["image_size"][0], configs["image_size"][1], always_apply=True, p=1),
+        ], p=0.5)
+
+        self.x_path, self.y_path, root_path = self.x_y_root_paths(configs)
+
+        for i in range(len(self.x_path)) :
+            v = Path(self.x_path[i].strip().replace("outsourced_dataset", "open_dataset"))
+            vv = Path(self.y_path[i].strip().replace("outsourced_dataset", "open_dataset"))
+>>>>>>> 88c8c7dee5e8c4244b53826235183fd203071791
 
             assert v.exists() and vv.exists(), "data is wrong"
 
@@ -132,7 +151,12 @@ class Ade20k () :
         img_sz = (self.configs["image_size"][0], self.configs["image_size"][1])
         x, y = cv2.resize(x, img_sz, img_sz, interpolation=cv2.INTER_LINEAR), cv2.resize(y, img_sz, img_sz, interpolation=cv2.INTER_NEAREST)
 
-        return x.astype(np.float32), y.astype(np.float32)
+        a_image = (augmented["image"]).astype(np.float32)
+        # a_image = a_image/255 - np.array([0.40760392, 0.45795686, 0.48501961])
+        a_image = a_image/255
+        a_mask = (augmented["mask"]).astype(np.int32)
+
+        return a_image, a_mask
 
     def on_epoch_end (self) :
 

@@ -16,6 +16,7 @@ from models.bisenet import Bisenet
 
 from dataparser.inria import Inria, Inria_v
 from dataparser.ade20k import Ade20k, Ade20k_v
+from dataparser.cityscape import Cityscape, Cityscape_v
 
 from PIL import Image
 
@@ -35,12 +36,12 @@ def softmax (a) :
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--config", type=str, required=True)
+    # args = parser.parse_args()
 
-    config = yaml.load("".join(Path(args.config).open("r").readlines()), Loader=yaml.FullLoader)
-    # config = yaml.load("".join(Path("configs/ade20k_bisenet.yaml").open("r").readlines()), Loader=yaml.FullLoader)
+    # config = yaml.load("".join(Path(args.config).open("r").readlines()), Loader=yaml.FullLoader)
+    config = yaml.load("".join(Path("configs/cityscape_hrnet.yaml").open("r").readlines()), Loader=yaml.FullLoader)
 
     print("=====================config=====================")
     for v in config.keys() :
@@ -67,17 +68,15 @@ if __name__ == "__main__":
         data_parserv = Inria_v(config)
     if config["dataset_name"] == "ade20k" :
         data_parserv = Ade20k_v(config)
+    if config["dataset_name"] == "cityscape" :
+        data_parserv = Cityscape_v(config)
 
     repeatv = config["epoch"]*data_parserv.steps
     datasetv = tf.data.Dataset.from_generator(
         data_parserv.generator,
         (tf.float32, tf.float32),
-        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
-<<<<<<< HEAD
-    ).batch(config["batch_size"], drop_remainder=True)
-=======
+        (tf.TensorShape([None, None, 3]), tf.TensorShape([None, None]))
     ).batch(config["batch_size"], drop_remainder=False)
->>>>>>> 6b379460608064d9beade5900bce39a0763b8d3b
 
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope() :
@@ -89,22 +88,38 @@ if __name__ == "__main__":
             the_model = Subject4(configs=config)
         elif config["model_name"] == "bisenet" :
             the_model = Bisenet(configs=config)
-        # hrnet = HRNet(configs=config)
 
         print(the_model.model)
-        # the_model.model.summary()
-
+        dist_datasetv = mirrored_strategy.experimental_distribute_dataset(datasetv)
+        
+        the_model.miou_op.reset_states()
 
     saving_folder = Path(config["test"]["output_folder"])
     if not saving_folder.is_dir() :
         saving_folder.mkdir(parents=True)
 
     i = 0
-    
+# %%
+
+
+    @tf.function
+    def test_step(dist_inputs) :
+        def test_fn(inputs) :
+            x, y = inputs
+
+            output = the_model.model(x, training=False)
+            accu = the_model.pixel_accuracy(y, output)
+            miou = the_model.miou(y, output)
+            return accu, miou
+
+        pe_accu, pe_miou = mirrored_strategy.experimental_run_v2(test_fn, args=(dist_inputs,))
+        mean_accu = mirrored_strategy.reduce(tf.distribute.ReduceOp.MEAN, pe_accu, axis=None)
+        mean_miou = mirrored_strategy.reduce(tf.distribute.ReduceOp.MEAN, pe_miou, axis=None)
+        return mean_accu, mean_miou
+
     if config["test"]["eval"] : 
 
         loss, accuracy, miou = the_model.model.evaluate(datasetv)
-        saving_folder = Path(config["test"]["output_folder"])
 
         print(f"loss : {loss}")
         print(f"accuracy : {accuracy}")
@@ -118,11 +133,11 @@ if __name__ == "__main__":
         print(f"miou : {np.mean(ious[ious!=0])}")
 
     else :
+        # for x_data, y_data in tqdm(dist_datasetv) :
         for x_data, y_data in tqdm(datasetv) :
-            output = the_model.model.predict_on_batch(x_data)
+            output = the_model.model(x_data, training=False)
 
             for ii in range(output.shape[0]) :
-
                 predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))), axis=-1), (1, 1, 3))
                 if config["dataset_name"] == "inria" :
 
@@ -136,11 +151,25 @@ if __name__ == "__main__":
                     image_name = data_parserv.image_list[data_parserv.index_list[config["batch_size"]*i+ii]].name
                 # Image.fromarray(((softmax(output[ii])[:, :, 1] > 0.9)*255).astype(np.uint8)).save(str(saving_folder/image_name))
                 # predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
-                # gt = np.tile(y_data[ii], (1, 1, 3))
-                merged_img = np.concatenate([x_data[ii]*255, y_data[ii], predicted], axis=1).astype(np.uint8)
+                gt = np.tile(np.expand_dims(y_data[ii], axis=-1), (1, 1, 3))
+                # print(x_data[ii].shape)
+                # print(y_data[ii].shape)
+                # print(predicted.shape)
+                merged_img = np.concatenate([x_data[ii]*255, gt, predicted], axis=1).astype(np.uint8)
                 Image.fromarray(merged_img).save(str(saving_folder/image_name))
 
         i += 1
 
 
 #%%
+
+if False :
+
+# %%
+
+    for x_data, y_data in tqdm(datasetv) :
+        output = the_model.model(x_data, training=False)
+
+        break
+
+# %%

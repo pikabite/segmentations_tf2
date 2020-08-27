@@ -7,6 +7,8 @@ from PIL import Image
 
 import albumentations as album
 
+import cv2
+
 import utils.util as util
 
 class Ade20k () :
@@ -18,20 +20,12 @@ class Ade20k () :
         self.index_list = []
         self.loaded_in_memory = False
 
-        self.albu = album.Compose([
-            album.VerticalFlip(),
-            album.HorizontalFlip(),
-            album.RGBShift(),
-            album.RandomBrightness(),
-            # album.Resize(configs["image_size"][0], configs["image_size"][1], always_apply=True, p=1),
-            album.RandomResizedCrop(height=configs["image_size"][0], width=configs["image_size"][1], scale=(0.7, 0.7)),
-            album.Normalize(mean=(0.40760392, 0.45795686, 0.48501961))
-            # album.CenterCrop(configs["image_size"][0], configs["image_size"][1], always_apply=True, p=1),
-        ], p=0.5)
-
+        self.aug = True
         self.x_path, self.y_path, root_path = self.x_y_root_paths(configs)
 
         for i in range(len(self.x_path)) :
+            # v = Path(self.x_path[i].strip().replace("outsourced_dataset", "open_dataset"))
+            # vv = Path(self.y_path[i].strip().replace("outsourced_dataset", "open_dataset"))
             v = Path(self.x_path[i].strip())
             vv = Path(self.y_path[i].strip())
 
@@ -48,30 +42,60 @@ class Ade20k () :
 
         self.configs = configs
 
+        self.offset = 0
+
     @property
     def steps (self) :
         # return self.x_gen.__len__() - 1
         return int(len(self.image_list)/self.configs["batch_size"])
     
-    def get_one_set (self, i) :
-
-        imgi = self.index_list[i]
-
-        img = np.asarray(Image.open(self.image_list[imgi]).convert("RGB"))
-        mask = np.asarray(Image.open(self.mask_list[imgi]).convert("RGB"))
-
+    def center_crop (self, img, mask) :
         mh = img.shape[0] - min(img.shape[0], img.shape[1])
         mw = img.shape[1] - min(img.shape[0], img.shape[1])
         msize = min(img.shape[0], img.shape[1])
         img = img[mh//2:mh//2+msize, mw//2:mw//2+msize, :]
         mask = mask[mh//2:mh//2+msize, mw//2:mw//2+msize, :]
+        return img, mask
+    
+    def random_crop (self, img, mask) :
+        mh = img.shape[0] - min(img.shape[0], img.shape[1])
+        mw = img.shape[1] - min(img.shape[0], img.shape[1])
+        msize = min(img.shape[0], img.shape[1])
+        rmh = np.random.randint(0, mh//2)
+        rmw = np.random.randint(0, mw//2)
+        img = img[rmh:rmh+msize, rmw:rmw+msize, :]
+        mask = mask[rmh:rmh+msize, rmw:rmw+msize, :]
+        return img, mask
+    
+    def random_flip (self, img, mask) :
+
+        if np.random.random() > 0.5 :
+            img = img[::-1, :, :]
+            mask = mask[::-1, :, :]
+        elif np.random.random() > 0.5 :
+            img = img[:, ::-1, :]
+            mask = mask[:, ::-1, :]
+
+        return img, mask
+
+    def norm (self, img, mask) :
+        return img/255, mask
+
+    def get_one_set (self, i) :
+
+        imgi = self.index_list[i]
+
+        img = Image.open(self.image_list[imgi]).convert("RGB")
+        mask = Image.open(self.mask_list[imgi]).convert("RGB")
 
         img, mask = self.additional_op(img, mask)
 
-        if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) :
+        img, mask = self.center_crop(img, mask)
+
+        # if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) :
             # print(img.shape)
             # exit()
-            img, mask = self.get_one_set(np.random.choice(self.index_list))
+            # img, mask = self.get_one_set(np.random.choice(self.index_list))
 
         return img, mask
 
@@ -84,6 +108,17 @@ class Ade20k () :
 
         self.on_epoch_end()
 
+    def get_batch (self) :
+
+        xs, ys = [], []
+
+        for b in range(self.configs["batch_size"]) :
+            x, y = self.get_one_set(self.offset + b)
+            xs.append(x), ys.append(y)
+
+        self.offset += self.configs["batch_size"]
+        return np.array(xs), np.array(ys)
+
     def x_y_root_paths (self, configs) :
         return (Path(configs["train_image_path"]).open("r").readlines(), 
                 Path(configs["train_mask_path"]).open("r").readlines(), 
@@ -91,27 +126,24 @@ class Ade20k () :
 
     def additional_op (self, x, y) :
 
-        augmented = self.albu(image=x, mask=y)
+        x, y = np.asarray(x), np.asarray(y)
+        x, y = self.random_flip(x, y)
+        x, y = self.norm(x, y)
+        img_sz = (self.configs["image_size"][0], self.configs["image_size"][1])
+        x, y = cv2.resize(x, img_sz, img_sz, interpolation=cv2.INTER_LINEAR), cv2.resize(y, img_sz, img_sz, interpolation=cv2.INTER_NEAREST)
 
-        a_image = (augmented["image"]).astype(np.float32)/255
-        a_mask = (augmented["mask"]).astype(np.float32)
-
-        return a_image, a_mask
+        return x.astype(np.float32), y.astype(np.float32)
 
     def on_epoch_end (self) :
 
         if self.shuffle :
             np.random.shuffle(self.index_list)
-
+        self.offset = 0
 
 class Ade20k_v (Ade20k) :
     
     def x_y_root_paths(self, configs):
-
-        self.albu = album.Compose([
-            album.Resize(configs["image_size"][0], configs["image_size"][1], always_apply=True, p=1),
-        ], p=1.0)
-
+        self.aug = False
         return (Path(configs["valid_image_path"]).open("r").readlines(), 
                 Path(configs["valid_mask_path"]).open("r").readlines(), 
                 Path(configs["valid_image_path"]).parent)
@@ -125,7 +157,7 @@ if False :
     # %%
     import yaml
 
-    tmp = "configs/ade20k_bisenet.yaml"
+    tmp = "/dy/configs/ade20k_hrnet.yaml"
     config = yaml.load("".join(Path(tmp).open("r").readlines()), Loader=yaml.FullLoader)
 
     ade20k = Ade20k(config)
@@ -133,13 +165,18 @@ if False :
 
 
     # %%
-    tmpgen = ade20k.generator()
+    # tmpgen = ade20k.generator()
     tmpgen = ade20kv.generator()
 
-    len(ade20k.image_list)
+    len(ade20kv.image_list)
 
     # %%
 
+    datasetv = tf.data.Dataset.from_generator(
+        ade20kv.generator,
+        (tf.float32, tf.float32),
+        (tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]), tf.TensorShape([config["image_size"][0], config["image_size"][1], 3]))
+    ).batch(config["batch_size"], drop_remainder=True)
     dataset = tf.data.Dataset.from_generator(
         ade20k.generator,
         (tf.float32, tf.float32),
@@ -148,24 +185,40 @@ if False :
 
     # %%
 
-    next(dataset)
+    next(datasetv)
 
     # %%
 
-    for i in range(20000) :
+    for i in range(2001) :
         a, b = next(tmpgen)
-        if a.shape != (256, 256, 3) :
+        if a.shape != (480, 480, 3) :
             print(a.shape)
-    # %%
+        if b.shape != (480, 480, 3) :
+            print(b.shape)
 
-    a, b = next(tmpgen)
-
-    # %%
-
-    Image.fromarray(np.clip(a*255, 0, 255).astype(np.uint8))
-    Image.fromarray(np.clip(b, 0, 255)[:, :, :].astype(np.uint8))
+        break
 
     # %%
+
+    for v in dataset.as_numpy_iterator() :
+        print(v[0].shape)
+
+    # %%
+
+
+    tmp = a + np.array([0.40760392, 0.45795686, 0.48501961])
+
+    tmpgt = (np.clip(b, 0, 255) == 6).astype(np.uint8)*255
+    Image.fromarray(tmpgt)
+    
+    Image.fromarray(np.clip(tmp*255, 0, 255).astype(np.uint8))
+
+    # %%
+
+
+
+    # %%
+
 
     from pathlib import Path
 
@@ -228,4 +281,3 @@ if False :
 
     Image.fromarray(((np.asarray(tmp_img2) == 20)*255).astype(np.uint8))
     # (tmp_img2 == 20)
-    

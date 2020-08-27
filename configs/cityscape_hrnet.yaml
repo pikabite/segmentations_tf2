@@ -1,0 +1,45 @@
+train_image_path : "/datasets/outsourced_dataset/cityscapes/train_images.txt"
+train_mask_path : "/datasets/outsourced_dataset/cityscapes/train_gts.txt"
+valid_image_path : "/datasets/outsourced_dataset/cityscapes/valid_images.txt"
+valid_mask_path : "/datasets/outsourced_dataset/cityscapes/valid_gts.txt"
+image_size : [1024, 2048]
+# image_size : [512, 1024]
+# image_size : [256, 256]
+batch_size : 6
+dataset_name : "cityscape"
+model_name : "hrnet"
+
+lr : 0.0005
+lr_decay : 0.0005
+
+gpu_indices : [2, 3]
+
+num_classes : 19
+class_weight : [0.8373, 0.918, 0.866, 1.0345, 
+                1.0166, 0.9969, 0.9754, 1.0489,
+                0.8786, 1.0023, 0.9539, 0.9843, 
+                1.1116, 0.9037, 1.0865, 1.0955, 
+                1.0865, 1.1529, 1.0507]
+class_color_map : []
+
+# 0 : train from scratch, 1 : train continue, 2 : test
+mode : 2
+present_epoch : 240
+epoch : 400
+saving_interval : 10
+save_best : True
+
+save_path : "/dy/weights/cityscape_hrnet"
+serving_save_path : "/dy/serving_weights/cityscape_hrnet"
+logger_file : "/dy/logs/cityscape_hrnet.csv"
+
+
+model :
+    c : 48
+
+test :
+    best : False
+    # best_file_name : "best.h5"
+    best_file_name : "model_390.h5"
+    eval : True
+    output_folder : "/dy/outputs/cityscape_hrnet"

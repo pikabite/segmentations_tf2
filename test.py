@@ -20,6 +20,7 @@ from dataparser.cityscape import Cityscape, Cityscape_v
 
 from PIL import Image
 
+from utils.util import *
 
 #%%
 
@@ -152,10 +153,13 @@ if __name__ == "__main__":
                 # Image.fromarray(((softmax(output[ii])[:, :, 1] > 0.9)*255).astype(np.uint8)).save(str(saving_folder/image_name))
                 # predicted = np.tile(np.expand_dims(((np.argmax(output[ii], axis=2))*255), axis=-1), (1, 1, 3))
                 gt = np.tile(np.expand_dims(y_data[ii], axis=-1), (1, 1, 3))
-                # print(x_data[ii].shape)
-                # print(y_data[ii].shape)
-                # print(predicted.shape)
-                merged_img = np.concatenate([x_data[ii]*255, gt, predicted], axis=1).astype(np.uint8)
+
+                # y_data = label_to_color(y_data, config["class_color_map"])
+                gt = label_to_color(gt, config["class_color_map"])
+                predicted = label_to_color(predicted, config["class_color_map"])
+                oriimgdata = unnorm(x_data[ii], data_parserv.mean, data_parserv.std)
+                
+                merged_img = np.concatenate([oriimgdata, gt, predicted], axis=1).astype(np.uint8)
                 Image.fromarray(merged_img).save(str(saving_folder/image_name))
 
         i += 1

@@ -14,6 +14,8 @@ RUN apt update \
 && pip3 install opencv-python opencv-contrib-python 
 RUN pip3 install -U git+https://github.com/albu/albumentations
 RUN python3 -m pip install --upgrade pip
+RUN apt install -y libgl1-mesa-glx
+RUN apt install -y vim
 
 # RUN pip3 install gast==0.2.2
 # RUN pip3 install tensorflow-gpu==2.2.0

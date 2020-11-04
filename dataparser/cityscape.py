@@ -9,7 +9,7 @@ import albumentations as album
 
 import cv2
 
-import utils.util as util
+# import utils.util as util
 
 # %%
 
@@ -27,6 +27,9 @@ class Cityscape () :
         for i in range(len(self.x_path)) :
             v = Path(self.x_path[i].strip())
             vv = Path(self.y_path[i].strip())
+
+            v = Path(str(v).replace("/datasets/outsourced_dataset/cityscapes", "/datasets/hdd/dataset/cityscapes"))
+            vv = Path(str(vv).replace("/datasets/outsourced_dataset/cityscapes", "/datasets/hdd/dataset/cityscapes"))
 
             assert v.exists() and vv.exists(), "data is wrong"
 
@@ -202,17 +205,19 @@ if False :
     # tmpgen = cityscape.generator()
     tmpgen = cityscapev.generator()
 
-    len(cityscape.image_list)
-
     tmptmp = np.zeros((34))
 
     for v in tmpgen :
         a, b = v
 
-        for i in range(34) :
-            tmptmp[i] += np.sum((b[:, :, 0] == i)*1)
-        
+        print(a.shape)
+        print(b.shape)
+        print(b)
+
         break
+        for i in range(34) :
+            tmptmp[i] += np.sum((b == i)*1)
+        
 
     # %%
 
@@ -242,82 +247,3 @@ if False :
     Image.fromarray((b*10).astype(np.uint8))
 
 # %%
-
-    # Image.open("/datasets/outsourced_dataset/cityscapes/gtFine/test/berlin/berlin_000000_000019_gtFine_labelIds.png")
-
-    train_path = Path("/datasets/outsourced_dataset/cityscapes/gtFine/train")
-    valid_path = Path("/datasets/outsourced_dataset/cityscapes/gtFine/val")
-    test_path = Path("/datasets/outsourced_dataset/cityscapes/gtFine/test")
-    
-    train_images = []
-    train_gts = []
-    valid_images = []
-    valid_gts = []
-    test_images = []
-    test_gts = []
-
-    train_img_path = Path("/datasets/outsourced_dataset/cityscapes/leftImg8bit/train")
-    valid_img_path = Path("/datasets/outsourced_dataset/cityscapes/leftImg8bit/val")
-    test_img_path = Path("/datasets/outsourced_dataset/cityscapes/leftImg8bit/test")
-
-    maxmax = 33
-
-    for v in train_path.iterdir() :
-        for vv in v.iterdir() :
-            if vv.is_dir() :
-                print("something wrong this is dir")
-                print(vv)
-            
-            if "labelIds" not in str(vv) :
-                continue
-            imgname = vv.name.replace("gtFine_labelIds", "leftImg8bit")
-            imgpath = (train_img_path/vv.parent.name/imgname)
-            if imgpath.exists() :
-                train_images.append(str(imgpath))
-                train_gts.append(str(vv))
-
-    for v in valid_path.iterdir() :
-        for vv in v.iterdir() :
-            if vv.is_dir() :
-                print("something wrong this is dir")
-                print(vv)
-            
-            if "labelIds" not in str(vv) :
-                continue
-            imgname = vv.name.replace("gtFine_labelIds", "leftImg8bit")
-            imgpath = (valid_img_path/vv.parent.name/imgname)
-            if imgpath.exists() :
-                valid_images.append(str(imgpath))
-                valid_gts.append(str(vv))
-
-    for v in test_path.iterdir() :
-        for vv in v.iterdir() :
-            if vv.is_dir() :
-                print("something wrong this is dir")
-                print(vv)
-            
-            if "labelIds" not in str(vv) :
-                continue
-            imgname = vv.name.replace("gtFine_labelIds", "leftImg8bit")
-            imgpath = (test_img_path/vv.parent.name/imgname)
-            if imgpath.exists() :
-                test_images.append(str(imgpath))
-                test_gts.append(str(vv))
-
-    # for vvv in train_img_path.iterdir() :
-    #     for vvvv in vvv.iterdir() :
-    #         print(vvvv)
-
-# %%
-
-    Path("/datasets/outsourced_dataset/cityscapes/train_images.txt").open("w+").write("\n".join(train_images))
-    Path("/datasets/outsourced_dataset/cityscapes/train_gts.txt").open("w+").write("\n".join(train_gts))
-    Path("/datasets/outsourced_dataset/cityscapes/valid_images.txt").open("w+").write("\n".join(valid_images))
-    Path("/datasets/outsourced_dataset/cityscapes/valid_gts.txt").open("w+").write("\n".join(valid_gts))
-    Path("/datasets/outsourced_dataset/cityscapes/test_images.txt").open("w+").write("\n".join(test_images))
-    Path("/datasets/outsourced_dataset/cityscapes/test_gts.txt").open("w+").write("\n".join(test_gts))
-
-
-# %%
-
-# Image.open("/datasets/outsourced_dataset/cityscapes/gtFine/test/berlin/berlin_000000_000019_gtFine_labelIds.png").size

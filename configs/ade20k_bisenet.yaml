@@ -1,26 +1,25 @@
-train_image_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/train_images.txt"
-train_mask_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/train_gts.txt"
-valid_image_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/valid_images.txt"
-valid_mask_path : "/datasets/open_dataset/ade20k/ADEChallengeData2016/valid_gts.txt"
+train_image_path : "/datasets/hdd/dataset/ADEChallengeData2016/train_images.txt"
+train_mask_path : "/datasets/hdd/dataset/ADEChallengeData2016/train_gts.txt"
+valid_image_path : "/datasets/hdd/dataset/ADEChallengeData2016/valid_images.txt"
+valid_mask_path : "/datasets/hdd/dataset/ADEChallengeData2016/valid_gts.txt"
 image_size : [480, 480]
 batch_size : 8
 dataset_name : "ade20k"
 model_name : "bisenet"
 
-wce_weight : 0.5
-lr : 0.001
-lr_decay : 0.001
+lr : 0.0001
+lr_decay : 0.002
 
 gpu_indices : [0, 1]
 
 num_classes : 151
-class_weight : [0.5, 2.0]
+class_weight : []
 class_color_map : []
 
 # 0 : train from 0, 1 : train continue, 2 : test
-mode : 0
-present_epoch : 0
-epoch : 50
+mode : 1
+present_epoch : 50
+epoch : 200
 saving_interval : 10
 save_best : True
 

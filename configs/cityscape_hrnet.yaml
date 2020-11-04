@@ -1,7 +1,7 @@
-train_image_path : "/datasets/outsourced_dataset/cityscapes/train_images.txt"
-train_mask_path : "/datasets/outsourced_dataset/cityscapes/train_gts.txt"
-valid_image_path : "/datasets/outsourced_dataset/cityscapes/valid_images.txt"
-valid_mask_path : "/datasets/outsourced_dataset/cityscapes/valid_gts.txt"
+train_image_path : "/datasets/hdd/dataset/cityscapes/train_images.txt"
+train_mask_path : "/datasets/hdd/dataset/cityscapes/train_gts.txt"
+valid_image_path : "/datasets/hdd/dataset/cityscapes/valid_images.txt"
+valid_mask_path : "/datasets/hdd/dataset/cityscapes/valid_gts.txt"
 image_size : [1024, 2048]
 # image_size : [512, 1024]
 # image_size : [256, 256]

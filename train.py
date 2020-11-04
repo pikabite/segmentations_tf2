@@ -173,6 +173,7 @@ if __name__ == "__main__":
                 mean_loss = train_step(s)
                 losses.append(mean_loss.numpy())
                 tqdm_s.set_description_str(f"Loss : {str(np.mean(losses))}")
+                
             print(f"Epoch : {str(e)}, Loss : {str(np.mean(losses))}")
 
             accus, mious = [], []

@@ -9,7 +9,7 @@ import albumentations as album
 
 import cv2
 
-import utils.util as util
+# import utils.util as util
 
 class Ade20k () :
 
@@ -24,10 +24,11 @@ class Ade20k () :
         self.x_path, self.y_path, root_path = self.x_y_root_paths(configs)
 
         for i in range(len(self.x_path)) :
-            # v = Path(self.x_path[i].strip().replace("outsourced_dataset", "open_dataset"))
-            # vv = Path(self.y_path[i].strip().replace("outsourced_dataset", "open_dataset"))
             v = Path(self.x_path[i].strip())
             vv = Path(self.y_path[i].strip())
+            
+            v = Path(str(v).replace("/datasets/outsourced_dataset/ade20k", "/datasets/hdd/dataset"))
+            vv = Path(str(vv).replace("/datasets/outsourced_dataset/ade20k", "/datasets/hdd/dataset"))
 
             assert v.exists() and vv.exists(), "data is wrong"
 
@@ -43,6 +44,13 @@ class Ade20k () :
         self.configs = configs
 
         self.offset = 0
+
+        self.ignore_label = 255
+
+    def convert_label(self, label, inverse=False):
+        temp = label.copy()
+        temp[temp == 0] = self.ignore_label
+        return temp
 
     @property
     def steps (self) :
@@ -90,7 +98,7 @@ class Ade20k () :
 
         img, mask = self.additional_op(img, mask)
 
-        img, mask = self.center_crop(img, mask)
+        # img, mask = self.center_crop(img, mask)
 
         # if img.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) or mask.shape != (self.configs["image_size"][0], self.configs["image_size"][1], 3) :
             # print(img.shape)
@@ -124,20 +132,33 @@ class Ade20k () :
                 Path(configs["train_mask_path"]).open("r").readlines(), 
                 Path(configs["train_image_path"]).parent)
 
+    def pad_or_resize (self, x, y) :
+
+        img_sz = (self.configs["image_size"][0], self.configs["image_size"][1])
+        w, h, c = x.shape
+        if w < img_sz[0] and h < img_sz[1] :
+            paddedx = np.zeros((img_sz[0], img_sz[1], 3))
+            paddedy = np.zeros((img_sz[0], img_sz[1], 3))
+            paddedy += 255
+            paddedx[:w, :h, :] = x
+            paddedy[:w, :h, :] = y
+
+            x = paddedx
+            y = paddedy
+        else :
+            x, y = cv2.resize(x, img_sz, img_sz, interpolation=cv2.INTER_LINEAR), cv2.resize(y, img_sz, img_sz, interpolation=cv2.INTER_NEAREST)
+        return x, y
+
     def additional_op (self, x, y) :
 
         x, y = np.asarray(x), np.asarray(y)
         x, y = self.random_flip(x, y)
         x, y = self.norm(x, y)
-        img_sz = (self.configs["image_size"][0], self.configs["image_size"][1])
-        x, y = cv2.resize(x, img_sz, img_sz, interpolation=cv2.INTER_LINEAR), cv2.resize(y, img_sz, img_sz, interpolation=cv2.INTER_NEAREST)
+        x, y = self.pad_or_resize(x, y)
+        y = self.convert_label(y)
+        y = np.mean(y, axis=-1).astype(np.int)
 
-        a_image = (augmented["image"]).astype(np.float32)
-        # a_image = a_image/255 - np.array([0.40760392, 0.45795686, 0.48501961])
-        a_image = a_image/255
-        a_mask = (augmented["mask"]).astype(np.int32)
-
-        return a_image, a_mask
+        return x, y
 
     def on_epoch_end (self) :
 
@@ -162,12 +183,21 @@ if False :
     # %%
     import yaml
 
-    tmp = "/dy/configs/ade20k_hrnet.yaml"
+    tmp = "/dy/configs/ade20k_bisenet.yaml"
     config = yaml.load("".join(Path(tmp).open("r").readlines()), Loader=yaml.FullLoader)
 
     ade20k = Ade20k(config)
     ade20kv = Ade20k_v(config)
 
+
+    # %%
+
+    a, b = ade20kv.get_batch()
+    Image.fromarray((a[4]*255).astype(np.uint8))
+
+    # %%
+    print(b[0])
+    Image.fromarray(b[4].astype(np.uint8))
 
     # %%
     # tmpgen = ade20k.generator()

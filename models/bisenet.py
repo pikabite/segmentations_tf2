@@ -21,6 +21,8 @@ class Bisenet :
         self.build_loss_and_op(self.model)
 
         self.load_weight(configs)
+        
+        self.ignore_index = 255
 
 
     def ConvAndBatch(self, x, n_filters=64, kernel=(2, 2), strides=(1, 1), padding='valid', activation='relu'):
@@ -48,13 +50,15 @@ class Bisenet :
                         kernel_size=kernel,
                         strides=1)
 
-        activation = Activation(activation)
+        if activation != None :
+            activation = Activation(activation)
 
         if pooling:
             x = poolingLayer(x)
 
         x = convLayer(x)
-        x = activation(x)
+        if activation != None :
+            x = activation(x)
 
         return x
 
@@ -75,8 +79,9 @@ class Bisenet :
 
         branch0 = self.ConvAndBatch(concatenate, n_filters=n_filters, kernel=(3, 3), padding='same')
         branch_1 = self.ConvAndAct(branch0, n_filters=n_filters, pooling=True, activation='relu')
-        branch_1 = self.ConvAndAct(branch_1, n_filters=n_filters, pooling=False, activation='sigmoid')
-
+        # branch_1 = self.ConvAndAct(branch_1, n_filters=n_filters, pooling=False, activation='sigmoid')
+        branch_1 = self.ConvAndAct(branch_1, n_filters=n_filters, pooling=False, activation=None)
+        
         x = multiply([branch0, branch_1])
         return Add()([branch0, x])
 
@@ -128,11 +133,18 @@ class Bisenet :
 
     def sce_loss (self, y_true, y_pred) :
 
+        ignore_mask = tf.where(tf.equal(y_true, self.ignore_index), x=0., y=1.)
         y_true = self.rgb_to_label_tf(y_true, self.configs)
 
-        # class_weights = tf.reduce_sum(tf.constant([self.configs["class_weight"]]) * y_true, axis=3)
-        sce = tf.nn.softmax_cross_entropy_with_logits(y_true, y_pred)
-        # sce = tf.reduce_mean(sce * class_weights)
+        class_weights = tf.constant([self.configs["class_weight"]])
+        if len(class_weights[0]) != 0 :
+            weights_processed = tf.reduce_sum(class_weights * y_true, axis=-1)
+
+        sce = tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred, axis=-1)
+
+        sce = ignore_mask * sce
+        if len(class_weights[0]) != 0 :
+            sce = weights_processed * sce
         sce = tf.reduce_mean(sce)
 
         return sce
@@ -146,9 +158,13 @@ class Bisenet :
 
 
     def pixel_accuracy (self, y_true, y_pred) :
-        y_true = tf.cast(tf.reduce_mean(y_true, axis=-1), dtype=tf.int32)
-        y_pred = tf.argmax(y_pred, axis=-1, output_type=tf.int32)
+    
+        ignore_mask = tf.where(tf.equal(y_true, self.ignore_index), x=0, y=1)
+
+        y_true = tf.cast(y_true, dtype=tf.int32) * ignore_mask
+        y_pred = tf.argmax(y_pred, axis=-1, output_type=tf.int32) * ignore_mask
         tmp = tf.where(condition=tf.equal(y_true, y_pred), x=1, y=0)
+
         return tf.reduce_mean(tf.cast(tmp, dtype=tf.float32))
 
     def build_loss_and_op (self, model) :
@@ -162,12 +178,11 @@ class Bisenet :
 
     def rgb_to_label_tf (self, y_true, configs) :
         
-        label_true = tf.one_hot(tf.cast(tf.reduce_mean(y_true, axis=-1), tf.int32), configs["num_classes"], axis=-1)
-        label_true = tf.cast(label_true, tf.float32)
+        y_true = tf.cast(y_true, dtype=tf.int32)
+        label_true = tf.one_hot(y_true, configs["num_classes"], axis=-1)
         return label_true
 
 
-    # TODO: damn we have to make it
     def load_weight (self, configs) :
 
         # if configs["present_epoch"] != 0 :

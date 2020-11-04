@@ -228,12 +228,14 @@ class HRNet :
         y_true = self.rgb_to_label_tf(y_true, self.configs)
 
         class_weights = tf.constant([self.configs["class_weight"]])
-        weights_processed = tf.reduce_sum(class_weights * y_true, axis=-1)
+        if len(class_weights[0]) != 0 :
+            weights_processed = tf.reduce_sum(class_weights * y_true, axis=-1)
 
         sce = tf.nn.softmax_cross_entropy_with_logits(labels=y_true, logits=y_pred, axis=-1)
 
         sce = ignore_mask * sce
-        sce = weights_processed * sce
+        if len(class_weights[0]) != 0 :
+            sce = weights_processed * sce
         sce = tf.reduce_mean(sce)
 
         return sce
